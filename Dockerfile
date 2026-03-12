@@ -1,8 +1,11 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
 # System deps for WeasyPrint + rmapi
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # WeasyPrint rendering
+# Cache mount keeps apt packages across rebuilds — only re-downloads on first build
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
@@ -10,27 +13,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
-    # rmapi (pre-built binary download needs curl + ca-certs)
     curl \
-    ca-certificates \
-    # General
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+    ca-certificates
 
-# Install rmapi binary
-RUN curl -sSL \
-    "https://github.com/juruen/rmapi/releases/latest/download/rmapi-linux-amd64.tar.gz" \
-    | tar -xz -C /usr/local/bin \
-    && chmod +x /usr/local/bin/rmapi
+# Install rmapi binary (pinned version — avoids GitHub API redirect on every build)
+RUN --mount=type=cache,target=/tmp/rmapi-cache \
+    RMAPI_VERSION="0.0.25" && \
+    RMAPI_URL="https://github.com/juruen/rmapi/releases/download/v${RMAPI_VERSION}/rmapi-linux-amd64.tar.gz" && \
+    if [ ! -f /tmp/rmapi-cache/rmapi.tar.gz ]; then \
+        curl -sSL "$RMAPI_URL" -o /tmp/rmapi-cache/rmapi.tar.gz; \
+    fi && \
+    tar -xz -C /usr/local/bin -f /tmp/rmapi-cache/rmapi.tar.gz && \
+    chmod +x /usr/local/bin/rmapi
 
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Cache mount keeps downloaded wheels — only re-downloads when requirements.txt changes
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 COPY app/ ./app/
 
-# Output dir for generated PDFs
 RUN mkdir -p /app/output /app/config
 
 CMD ["python", "-m", "app.main"]
