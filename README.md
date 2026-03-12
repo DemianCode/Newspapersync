@@ -7,7 +7,7 @@ Runs as a single Docker container. Includes a web UI for managing feeds and prev
 
 ## Features
 
-- **Web UI** — dashboard, PDF preview, RSS editor at `http://localhost:8080`
+- **Web UI** — dashboard, PDF preview, RSS editor at `http://localhost:3050`
 - **RSS feeds** — configurable feeds via the web UI or `config/sources.yml`
 - **Weather** — current conditions + hourly forecast via Open-Meteo (no API key needed)
 - **TickTick** — tasks due today and overdue
@@ -85,7 +85,7 @@ Find your device email at: **my.remarkable.com → Settings → Email & storage*
 docker compose up -d --build
 ```
 
-The web UI is available immediately at **http://localhost:8080**.
+The web UI is available immediately at **http://localhost:3050**.
 The newspaper generates at your scheduled time, or click **Generate Now** in the dashboard.
 
 ---
@@ -102,7 +102,7 @@ Follow the OAuth flow. Token is saved to `config/.ticktick_token`.
 
 ## Web UI
 
-Visit **http://localhost:8080** after starting the container.
+Visit **http://localhost:3050** after starting the container.
 
 | Page | Path | What it does |
 |---|---|---|
@@ -149,8 +149,8 @@ All non-secret settings live in `docker-compose.yml`. Full inline comments are t
 
 | Variable | Default | Description |
 |---|---|---|
-| `WEB_ENABLED` | `true` | Enable the web UI on port 8080 |
-| `WEB_PORT` | `8080` | Web UI port |
+| `WEB_ENABLED` | `true` | Enable the web UI on port 3050 |
+| `WEB_PORT` | `3050` | Web UI port |
 | `SCHEDULE_TIME` | `06:00` | Daily generation time (HH:MM, container local time) |
 | `RUN_ON_START` | `false` | Also run immediately when the container starts |
 | `TZ` | `UTC` | Container timezone |

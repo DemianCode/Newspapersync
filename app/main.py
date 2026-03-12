@@ -4,7 +4,7 @@ Runs as a long-lived process inside Docker.
 
 When WEB_ENABLED=true (default):
   - Starts the daily scheduler in the background (BackgroundScheduler)
-  - Serves the web UI on port 8080 (blocking, uvicorn)
+  - Serves the web UI on port 3050 (blocking, uvicorn)
 
 When WEB_ENABLED=false:
   - Runs the scheduler only (BlockingScheduler, no web UI)
@@ -13,7 +13,7 @@ Environment variables (all set in docker-compose.yml):
   SCHEDULE_TIME  — "HH:MM" in container local time (default "06:00")
   RUN_ON_START   — "true" to also run immediately on startup
   WEB_ENABLED    — "true" | "false" (default "true")
-  WEB_PORT       — port for the web UI (default 8080)
+  WEB_PORT       — port for the web UI (default 3050)
 """
 
 from __future__ import annotations
@@ -109,7 +109,7 @@ def _run_with_web() -> None:
 
     hour, minute = _parse_schedule_time()
     run_on_start = os.environ.get("RUN_ON_START", "false").lower() == "true"
-    port = int(os.environ.get("WEB_PORT", "8080"))
+    port = int(os.environ.get("WEB_PORT", "3050"))
 
     logger.info(
         "NewspaSync starting — daily run at %02d:%02d — web UI on port %d",
