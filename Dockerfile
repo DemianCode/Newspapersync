@@ -16,12 +16,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl \
     ca-certificates
 
-# Install rmapi binary (pinned version — avoids GitHub API redirect on every build)
+# Install rmapi binary (pinned version)
 RUN --mount=type=cache,target=/tmp/rmapi-cache \
     RMAPI_VERSION="0.0.25" && \
     RMAPI_URL="https://github.com/juruen/rmapi/releases/download/v${RMAPI_VERSION}/rmapi-linux-amd64.tar.gz" && \
-    if [ ! -f /tmp/rmapi-cache/rmapi.tar.gz ]; then \
-        curl -sSL "$RMAPI_URL" -o /tmp/rmapi-cache/rmapi.tar.gz; \
+    if [ ! -f /tmp/rmapi-cache/rmapi.tar.gz ] || ! tar -tzf /tmp/rmapi-cache/rmapi.tar.gz > /dev/null 2>&1; then \
+        curl -fsSL "$RMAPI_URL" -o /tmp/rmapi-cache/rmapi.tar.gz; \
     fi && \
     tar -xz -C /usr/local/bin -f /tmp/rmapi-cache/rmapi.tar.gz && \
     chmod +x /usr/local/bin/rmapi
