@@ -17,13 +17,30 @@ Runs as a Docker container on Unraid (or any Docker host).
 
 ### 1. Configure
 
+```bash
+cp .env.example .env
+```
+
+Edit `.env` — fill in only the secrets for sources you plan to enable
+(SMTP credentials, email password, TickTick keys, AI key).
+
 Edit `docker-compose.yml`:
 - Set `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_LOCATION_NAME`
 - Set `TZ` to your timezone
 - Enable/disable sources (`WEATHER_ENABLED`, `EMAIL_ENABLED`, `TICKTICK_ENABLED`, etc.)
-- Set credentials for any enabled sources
+- Set `REMARKABLE_SYNC_METHOD` (see below)
 
 Edit `config/sources.yml` to add/remove RSS feeds.
+
+### reMarkable sync methods
+
+| Method | Archive support | Requires |
+|---|---|---|
+| `rmapi` | Yes — moves PDFs to Archive folder | rmapi one-time auth |
+| `email` | No | SMTP credentials + device email in `.env` |
+| `rmapi_with_email_fallback` | Yes (rmapi path) | Both of the above |
+
+**Device email address**: find it at my.remarkable.com → Settings → Email & storage.
 
 ### 2. Set up rmapi (reMarkable auth)
 

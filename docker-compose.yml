@@ -3,79 +3,61 @@ services:
     build: .
     container_name: newspapersync
     restart: unless-stopped
+    env_file: .env                        # all secrets live in .env (gitignored)
     volumes:
-      - ./config:/app/config          # source config (feeds.yml, etc.)
-      - ./output:/app/output          # generated PDFs
-      - ./rmapi:/root/.config/rmapi   # rmapi auth state (persist between restarts)
+      - ./config:/app/config              # sources.yml, token files
+      - ./output:/app/output              # generated PDFs
+      - ./rmapi:/root/.config/rmapi       # rmapi auth state (persists across restarts)
     environment:
-      # ── Scheduler ──────────────────────────────────────────────────────────
-      # Time to generate and sync the newspaper each day (24h, container local time)
-      SCHEDULE_TIME: "06:00"
-      # Also run once immediately on container start? (true/false)
-      RUN_ON_START: "false"
+      # ── Timezone ───────────────────────────────────────────────────────────
+      TZ: "Australia/Sydney"
 
-      # ── reMarkable ─────────────────────────────────────────────────────────
-      # Folder on reMarkable where today's PDF is uploaded
+      # ── Scheduler ──────────────────────────────────────────────────────────
+      SCHEDULE_TIME: "06:00"              # HH:MM in container local time
+      RUN_ON_START: "false"               # also run immediately on container start
+
+      # ── reMarkable sync ────────────────────────────────────────────────────
+      # Method: "rmapi" | "email" | "rmapi_with_email_fallback"
+      #   rmapi                   — upload via rmapi CLI (supports archiving)
+      #   email                   — send PDF to your reMarkable device email
+      #   rmapi_with_email_fallback — try rmapi first, fall back to email on failure
+      REMARKABLE_SYNC_METHOD: "rmapi_with_email_fallback"
       REMARKABLE_FOLDER: "Newspaper"
-      # Folder where previous PDFs are archived (leave blank to delete instead)
-      REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"
-      # Delete archive entries older than N days (0 = keep forever)
-      REMARKABLE_ARCHIVE_KEEP_DAYS: "30"
+      REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
+      REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
 
       # ── Weather ────────────────────────────────────────────────────────────
       WEATHER_ENABLED: "true"
-      # Latitude and longitude for your location
       WEATHER_LAT: "YOUR_LAT"
       WEATHER_LON: "YOUR_LON"
-      # "celsius" or "fahrenheit"
-      WEATHER_UNITS: "celsius"
-      # Location display name (shown in the newspaper header)
+      WEATHER_UNITS: "celsius"            # "celsius" or "fahrenheit"
       WEATHER_LOCATION_NAME: "My City"
 
-      # ── Email (IMAP) ───────────────────────────────────────────────────────
+      # ── Email inbox (IMAP) ─────────────────────────────────────────────────
       EMAIL_ENABLED: "false"
       EMAIL_IMAP_HOST: "imap.gmail.com"
       EMAIL_IMAP_PORT: "993"
-      EMAIL_USERNAME: "you@example.com"
-      EMAIL_PASSWORD: "your-app-password"
-      # Number of most recent unread emails to summarise
-      EMAIL_MAX_ITEMS: "10"
+      EMAIL_MAX_ITEMS: "10"               # max unread emails to show
 
       # ── TickTick ───────────────────────────────────────────────────────────
       TICKTICK_ENABLED: "false"
-      TICKTICK_CLIENT_ID: ""
-      TICKTICK_CLIENT_SECRET: ""
-      # After first run, refresh token is stored in /app/config/.ticktick_token
-      # Show tasks due today + overdue? (true/false)
       TICKTICK_SHOW_OVERDUE: "true"
 
       # ── RSS / News ─────────────────────────────────────────────────────────
       RSS_ENABLED: "true"
-      # Max articles fetched per feed
       RSS_MAX_ARTICLES_PER_FEED: "5"
-      # Max body length (chars) extracted per article (0 = full article)
-      RSS_MAX_ARTICLE_LENGTH: "1500"
+      RSS_MAX_ARTICLE_LENGTH: "1500"      # chars per article (0 = unlimited)
 
-      # ── Web Scraper (non-RSS sites) ────────────────────────────────────────
+      # ── Web scraper (non-RSS sites) ────────────────────────────────────────
       SCRAPER_ENABLED: "false"
-      # Sites defined in config/sources.yml under scraper.sites
 
-      # ── AI Summary (optional — uses OpenAI-compatible endpoint) ────────────
+      # ── AI summaries (OpenAI-compatible) ───────────────────────────────────
       AI_SUMMARY_ENABLED: "false"
-      # Provide a brief AI summary for each article? Requires API key below.
-      AI_API_KEY: ""
-      AI_API_BASE_URL: "https://api.openai.com/v1"
+      AI_API_BASE_URL: "https://api.openai.com/v1"  # swap for local Ollama endpoint
       AI_MODEL: "gpt-4o-mini"
-      # Max tokens for each article summary
       AI_SUMMARY_MAX_TOKENS: "120"
 
-      # ── PDF Appearance ─────────────────────────────────────────────────────
-      # "light" or "dark" — dark optimised for reMarkable e-ink
-      PDF_THEME: "light"
-      # Paper size: "A5" (reMarkable native) or "A4"
-      PDF_PAPER_SIZE: "A5"
-      # Layout columns for news section: 1 or 2
-      PDF_COLUMNS: "1"
-
-      # ── Timezone ───────────────────────────────────────────────────────────
-      TZ: "Australia/Sydney"
+      # ── PDF appearance ─────────────────────────────────────────────────────
+      PDF_THEME: "light"                  # "light" or "dark"
+      PDF_PAPER_SIZE: "A5"               # "A5" (reMarkable native) or "A4"
+      PDF_COLUMNS: "1"                    # news columns: 1 or 2

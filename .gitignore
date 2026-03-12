@@ -3,5 +3,7 @@ rmapi/
 config/.ticktick_token
 __pycache__/
 *.pyc
-.env
 *.pdf
+
+# Secrets — copy .env.example → .env and fill in your values
+.env
