@@ -1,0 +1,81 @@
+services:
+  newspapersync:
+    build: .
+    container_name: newspapersync
+    restart: unless-stopped
+    volumes:
+      - ./config:/app/config          # source config (feeds.yml, etc.)
+      - ./output:/app/output          # generated PDFs
+      - ./rmapi:/root/.config/rmapi   # rmapi auth state (persist between restarts)
+    environment:
+      # ── Scheduler ──────────────────────────────────────────────────────────
+      # Time to generate and sync the newspaper each day (24h, container local time)
+      SCHEDULE_TIME: "06:00"
+      # Also run once immediately on container start? (true/false)
+      RUN_ON_START: "false"
+
+      # ── reMarkable ─────────────────────────────────────────────────────────
+      # Folder on reMarkable where today's PDF is uploaded
+      REMARKABLE_FOLDER: "Newspaper"
+      # Folder where previous PDFs are archived (leave blank to delete instead)
+      REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"
+      # Delete archive entries older than N days (0 = keep forever)
+      REMARKABLE_ARCHIVE_KEEP_DAYS: "30"
+
+      # ── Weather ────────────────────────────────────────────────────────────
+      WEATHER_ENABLED: "true"
+      # Latitude and longitude for your location
+      WEATHER_LAT: "YOUR_LAT"
+      WEATHER_LON: "YOUR_LON"
+      # "celsius" or "fahrenheit"
+      WEATHER_UNITS: "celsius"
+      # Location display name (shown in the newspaper header)
+      WEATHER_LOCATION_NAME: "My City"
+
+      # ── Email (IMAP) ───────────────────────────────────────────────────────
+      EMAIL_ENABLED: "false"
+      EMAIL_IMAP_HOST: "imap.gmail.com"
+      EMAIL_IMAP_PORT: "993"
+      EMAIL_USERNAME: "you@example.com"
+      EMAIL_PASSWORD: "your-app-password"
+      # Number of most recent unread emails to summarise
+      EMAIL_MAX_ITEMS: "10"
+
+      # ── TickTick ───────────────────────────────────────────────────────────
+      TICKTICK_ENABLED: "false"
+      TICKTICK_CLIENT_ID: ""
+      TICKTICK_CLIENT_SECRET: ""
+      # After first run, refresh token is stored in /app/config/.ticktick_token
+      # Show tasks due today + overdue? (true/false)
+      TICKTICK_SHOW_OVERDUE: "true"
+
+      # ── RSS / News ─────────────────────────────────────────────────────────
+      RSS_ENABLED: "true"
+      # Max articles fetched per feed
+      RSS_MAX_ARTICLES_PER_FEED: "5"
+      # Max body length (chars) extracted per article (0 = full article)
+      RSS_MAX_ARTICLE_LENGTH: "1500"
+
+      # ── Web Scraper (non-RSS sites) ────────────────────────────────────────
+      SCRAPER_ENABLED: "false"
+      # Sites defined in config/sources.yml under scraper.sites
+
+      # ── AI Summary (optional — uses OpenAI-compatible endpoint) ────────────
+      AI_SUMMARY_ENABLED: "false"
+      # Provide a brief AI summary for each article? Requires API key below.
+      AI_API_KEY: ""
+      AI_API_BASE_URL: "https://api.openai.com/v1"
+      AI_MODEL: "gpt-4o-mini"
+      # Max tokens for each article summary
+      AI_SUMMARY_MAX_TOKENS: "120"
+
+      # ── PDF Appearance ─────────────────────────────────────────────────────
+      # "light" or "dark" — dark optimised for reMarkable e-ink
+      PDF_THEME: "light"
+      # Paper size: "A5" (reMarkable native) or "A4"
+      PDF_PAPER_SIZE: "A5"
+      # Layout columns for news section: 1 or 2
+      PDF_COLUMNS: "1"
+
+      # ── Timezone ───────────────────────────────────────────────────────────
+      TZ: "Australia/Sydney"

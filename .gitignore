@@ -1,0 +1,7 @@
+output/
+rmapi/
+config/.ticktick_token
+__pycache__/
+*.pyc
+.env
+*.pdf

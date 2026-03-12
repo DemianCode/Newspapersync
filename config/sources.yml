@@ -1,0 +1,48 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NewspaSync — sources.yml
+# Configure RSS feeds and scraped sites here.
+# Toggle features (weather, email, ticktick, etc.) in docker-compose.yml.
+# ─────────────────────────────────────────────────────────────────────────────
+
+rss:
+  feeds:
+    # ── World / General News ─────────────────────────────────────────────────
+    - name: "BBC World"
+      url: "http://feeds.bbci.co.uk/news/world/rss.xml"
+      max_items: 5
+
+    - name: "Reuters"
+      url: "https://feeds.reuters.com/reuters/topNews"
+      max_items: 5
+
+    # ── Technology ───────────────────────────────────────────────────────────
+    - name: "Hacker News Top"
+      url: "https://hnrss.org/frontpage?points=100"
+      max_items: 8
+
+    - name: "The Verge"
+      url: "https://www.theverge.com/rss/index.xml"
+      max_items: 4
+
+    # ── Science ─────────────────────────────────────────────────────────────
+    - name: "Science Daily"
+      url: "https://www.sciencedaily.com/rss/top/science.xml"
+      max_items: 3
+
+    # ── Add your own feeds below ─────────────────────────────────────────────
+    # - name: "My Blog"
+    #   url: "https://example.com/feed.xml"
+    #   max_items: 3
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Web scraper (for sites without usable RSS feeds)
+# Requires SCRAPER_ENABLED=true in docker-compose.yml
+# ─────────────────────────────────────────────────────────────────────────────
+scraper:
+  sites:
+    # - name: "Example Site"
+    #   url: "https://example.com"
+    #   # CSS selectors for article links (trafilatura handles content extraction)
+    #   article_link_selector: "a.story-link"
+    #   max_items: 4
