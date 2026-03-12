@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     env_file: .env                        # all secrets live in .env (gitignored)
     ports:
-      - "8080:8080"                       # web UI — visit http://localhost:8080
+      - "3050:3050"                       # web UI — visit http://localhost:3050
     volumes:
       - ./config:/app/config              # sources.yml, token files
       - ./output:/app/output              # generated PDFs
@@ -13,7 +13,7 @@ services:
     environment:
       # ── Web UI ─────────────────────────────────────────────────────────────
       WEB_ENABLED: "true"                 # set to "false" to disable the web UI
-      WEB_PORT: "8080"
+      WEB_PORT: "3050"
 
       # ── Timezone ───────────────────────────────────────────────────────────
       TZ: "Australia/Sydney"
@@ -23,11 +23,8 @@ services:
       RUN_ON_START: "false"               # also run immediately on container start
 
       # ── reMarkable sync ────────────────────────────────────────────────────
-      # Method: "rmapi" | "email" | "rmapi_with_email_fallback"
-      #   rmapi                   — upload via rmapi CLI (supports archiving)
-      #   email                   — send PDF to your reMarkable device email
-      #   rmapi_with_email_fallback — try rmapi first, fall back to email on failure
-      REMARKABLE_SYNC_METHOD: "rmapi_with_email_fallback"
+      # Auth rmapi before first run — see README for instructions
+      REMARKABLE_SYNC_METHOD: "rmapi"
       REMARKABLE_FOLDER: "Newspaper"
       REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
       REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
