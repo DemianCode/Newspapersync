@@ -30,8 +30,7 @@ Edit `.env` and fill in only the credentials for sources you plan to use:
 
 | Secret | When needed |
 |---|---|
-| `SMTP_*`, `REMARKABLE_DEVICE_EMAIL` | When using email sync to reMarkable |
-| `EMAIL_USERNAME`, `EMAIL_PASSWORD` | When `EMAIL_ENABLED=true` (inbox summary) |
+| `EMAIL_USERNAME`, `EMAIL_PASSWORD` | When `EMAIL_ENABLED=true` (inbox summary in newspaper) |
 | `TICKTICK_CLIENT_ID/SECRET` | When `TICKTICK_ENABLED=true` |
 | `AI_API_KEY` | When `AI_SUMMARY_ENABLED=true` |
 
@@ -55,37 +54,38 @@ Enable or disable sources with the `*_ENABLED` flags (weather is on by default, 
 
 ---
 
-### Step 3 — Auth reMarkable (one-time)
-
-Skip this step if you plan to use email sync only.
-
-```bash
-docker compose run --rm newspapersync rmapi
-```
-
-This opens the rmapi interactive setup. It prints a URL — go to
-**my.remarkable.com → Settings → one-time code**, paste the code back.
-Auth state is saved to `./rmapi/` and persists across container restarts.
-
-**Sync methods** — set `REMARKABLE_SYNC_METHOD` in `docker-compose.yml`:
-
-| Method | How it works | Requires |
-|---|---|---|
-| `rmapi` | Uploads via rmapi CLI, supports archiving | rmapi auth (step above) |
-| `email` | Sends PDF to your device email address | SMTP + device email in `.env` |
-| `rmapi_with_email_fallback` | Tries rmapi first, falls back to email | Both of the above |
-
-Find your device email at: **my.remarkable.com → Settings → Email & storage**.
-
----
-
-### Step 4 — Build and start
+### Step 3 — Build and start
 
 ```bash
 docker compose up -d --build
 ```
 
 The web UI is available immediately at **http://localhost:3050**.
+
+---
+
+### Step 4 — Auth reMarkable (one-time, required)
+
+The container needs to be running before you can auth. Run this to open an interactive rmapi session:
+
+```bash
+docker compose run --rm newspapersync rmapi
+```
+
+rmapi will print something like:
+
+```
+Go to https://my.remarkable.com/device/desktop/connect
+Enter the one-time code: XXXXXX
+```
+
+1. Open that URL in your browser
+2. Log in to your reMarkable account
+3. Copy the one-time code shown on the page
+4. Paste it back into the terminal and press Enter
+
+Auth state is saved to `./rmapi/` on the host and persists across restarts. You should only ever need to do this once.
+
 The newspaper generates at your scheduled time, or click **Generate Now** in the dashboard.
 
 ---
@@ -154,7 +154,7 @@ All non-secret settings live in `docker-compose.yml`. Full inline comments are t
 | `SCHEDULE_TIME` | `06:00` | Daily generation time (HH:MM, container local time) |
 | `RUN_ON_START` | `false` | Also run immediately when the container starts |
 | `TZ` | `UTC` | Container timezone |
-| `REMARKABLE_SYNC_METHOD` | `rmapi_with_email_fallback` | See sync methods above |
+| `REMARKABLE_SYNC_METHOD` | `rmapi` | `rmapi` only (email delivery not supported on newer devices) |
 | `REMARKABLE_FOLDER` | `Newspaper` | Upload folder on reMarkable |
 | `REMARKABLE_ARCHIVE_FOLDER` | `Newspaper/Archive` | Archive folder (blank = delete old files) |
 | `REMARKABLE_ARCHIVE_KEEP_DAYS` | `30` | Days to keep archived PDFs (0 = keep forever) |

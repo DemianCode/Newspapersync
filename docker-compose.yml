@@ -23,11 +23,8 @@ services:
       RUN_ON_START: "false"               # also run immediately on container start
 
       # ── reMarkable sync ────────────────────────────────────────────────────
-      # Method: "rmapi" | "email" | "rmapi_with_email_fallback"
-      #   rmapi                   — upload via rmapi CLI (supports archiving)
-      #   email                   — send PDF to your reMarkable device email
-      #   rmapi_with_email_fallback — try rmapi first, fall back to email on failure
-      REMARKABLE_SYNC_METHOD: "rmapi_with_email_fallback"
+      # Auth rmapi before first run — see README for instructions
+      REMARKABLE_SYNC_METHOD: "rmapi"
       REMARKABLE_FOLDER: "Newspaper"
       REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
       REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
