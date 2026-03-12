@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}NewspaSync{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #f4f1eb;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a1a;
+      color: white;
+    }
+    .header-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+    .site-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .site-title span { color: #d94f2e; }
+    .site-sub {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.78rem;
+      color: #888;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #2c2c2c;
+      border-bottom: 3px solid #d94f2e;
+    }
+    .nav-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+    }
+    nav a {
+      display: inline-block;
+      color: #aaa;
+      text-decoration: none;
+      padding: 10px 18px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      transition: color 0.15s, background 0.15s;
+    }
+    nav a:hover { color: white; background: #3d3d3d; }
+    nav a.active { color: white; background: #d94f2e; }
+
+    /* ── Page ── */
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+    }
+
+    .page-heading {
+      font-size: 1.4rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #1a1a1a;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-block;
+      padding: 8px 22px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-primary:hover { background: #333; }
+    .btn-primary:disabled { background: #888; cursor: not-allowed; }
+    .btn-danger { background: #c0392b; color: white; }
+    .btn-danger:hover { background: #a93226; }
+    .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+    .btn-ghost {
+      background: #eee;
+      color: #444;
+      border: 1px solid #ddd;
+    }
+    .btn-ghost:hover { background: #e0e0e0; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-error   { background: #f8d7da; color: #721c24; }
+    .badge-running { background: #fff3cd; color: #856404; }
+    .badge-idle    { background: #e9ecef; color: #555; }
+
+    /* ── Forms ── */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    label.field-label {
+      display: block;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+      letter-spacing: 0.03em;
+    }
+    input[type=text], input[type=url], input[type=number] {
+      padding: 7px 10px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.85rem;
+      color: #1a1a1a;
+      background: white;
+    }
+    input:focus {
+      outline: none;
+      border-color: #1a1a1a;
+      box-shadow: 0 0 0 2px rgba(26,26,26,0.08);
+    }
+
+    /* ── Flash messages ── */
+    .flash {
+      padding: 10px 16px;
+      border-radius: 3px;
+      margin-bottom: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.85rem;
+    }
+    .flash-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    /* ── Utility ── */
+    .mono {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.83rem;
+    }
+    .text-muted {
+      color: #888;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="site-title">Newspa<span>Sync</span></div>
+    <div class="site-sub">reMarkable newspaper generator</div>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" {% if active == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+    <a href="/sources" {% if active == 'sources' %}class="active"{% endif %}>RSS Sources</a>
+    <a href="/settings" {% if active == 'settings' %}class="active"{% endif %}>Settings</a>
+  </div>
+</nav>
+
+<main>
+  {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

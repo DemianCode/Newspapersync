@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Settings — NewspaSync{% endblock %}
+
+{% block content %}
+
+<div class="card" style="background: #fffbf0; border-color: #f0e8c8; margin-bottom: 24px;">
+  <p style="font-family: -apple-system, sans-serif; font-size: 0.875rem; line-height: 1.6; color: #6b5800;">
+    <strong>How to change settings:</strong> Edit the <span class="mono">environment:</span> section in
+    <span class="mono">docker-compose.yml</span>, then restart the container
+    with <span class="mono">docker compose up -d --force-recreate</span>.<br>
+    Secrets (passwords, API keys) live in <span class="mono">.env</span> — values there are intentionally hidden below.
+  </p>
+</div>
+
+{% for group, vars in config.items() %}
+<div class="card">
+  <div class="card-title">{{ group }}</div>
+
+  <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
+    {% for var, value in vars.items() %}
+    <tr style="border-bottom: 1px solid #f5f5f5;">
+      <td style="padding: 8px 0; width: 300px; color: #555;" class="mono">{{ var }}</td>
+      <td style="padding: 8px 0;">
+        {% if value %}
+          <span style="color: #1a1a1a;">{{ value }}</span>
+        {% else %}
+          <span style="color: #bbb; font-style: italic;">not set</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endfor %}
+
+<!-- ── Quick reference ── -->
+<div class="card" style="background: #fafaf7; border-color: #e8e5dd;">
+  <div class="card-title">Quick reference</div>
+  <table style="font-family: -apple-system, sans-serif; font-size: 0.85rem; border-collapse: collapse; width: 100%;">
+    <tbody>
+      {% for label, cmd in [
+        ("Restart container",            "docker compose up -d --force-recreate"),
+        ("View live logs",               "docker compose logs -f"),
+        ("Run generation now (CLI)",     "docker compose exec newspapersync python -m app.main --now"),
+        ("Auth rmapi (first-time)",      "docker compose run --rm newspapersync rmapi"),
+        ("Rebuild after code changes",   "docker compose up -d --build"),
+      ] %}
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 7px 0; color: #555; width: 240px;">{{ label }}</td>
+        <td style="padding: 7px 0;" class="mono">{{ cmd }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

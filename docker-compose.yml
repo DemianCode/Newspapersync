@@ -1,0 +1,69 @@
+services:
+  newspapersync:
+    build: .
+    container_name: newspapersync
+    restart: unless-stopped
+    env_file: .env                        # all secrets live in .env (gitignored)
+    ports:
+      - "8080:8080"                       # web UI — visit http://localhost:8080
+    volumes:
+      - ./config:/app/config              # sources.yml, token files
+      - ./output:/app/output              # generated PDFs
+      - ./rmapi:/root/.config/rmapi       # rmapi auth state (persists across restarts)
+    environment:
+      # ── Web UI ─────────────────────────────────────────────────────────────
+      WEB_ENABLED: "true"                 # set to "false" to disable the web UI
+      WEB_PORT: "8080"
+
+      # ── Timezone ───────────────────────────────────────────────────────────
+      TZ: "Australia/Sydney"
+
+      # ── Scheduler ──────────────────────────────────────────────────────────
+      SCHEDULE_TIME: "06:00"              # HH:MM in container local time
+      RUN_ON_START: "false"               # also run immediately on container start
+
+      # ── reMarkable sync ────────────────────────────────────────────────────
+      # Method: "rmapi" | "email" | "rmapi_with_email_fallback"
+      #   rmapi                   — upload via rmapi CLI (supports archiving)
+      #   email                   — send PDF to your reMarkable device email
+      #   rmapi_with_email_fallback — try rmapi first, fall back to email on failure
+      REMARKABLE_SYNC_METHOD: "rmapi_with_email_fallback"
+      REMARKABLE_FOLDER: "Newspaper"
+      REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
+      REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
+
+      # ── Weather ────────────────────────────────────────────────────────────
+      WEATHER_ENABLED: "true"
+      WEATHER_LAT: "YOUR_LAT"
+      WEATHER_LON: "YOUR_LON"
+      WEATHER_UNITS: "celsius"            # "celsius" or "fahrenheit"
+      WEATHER_LOCATION_NAME: "My City"
+
+      # ── Email inbox (IMAP) ─────────────────────────────────────────────────
+      EMAIL_ENABLED: "false"
+      EMAIL_IMAP_HOST: "imap.gmail.com"
+      EMAIL_IMAP_PORT: "993"
+      EMAIL_MAX_ITEMS: "10"               # max unread emails to show
+
+      # ── TickTick ───────────────────────────────────────────────────────────
+      TICKTICK_ENABLED: "false"
+      TICKTICK_SHOW_OVERDUE: "true"
+
+      # ── RSS / News ─────────────────────────────────────────────────────────
+      RSS_ENABLED: "true"
+      RSS_MAX_ARTICLES_PER_FEED: "5"
+      RSS_MAX_ARTICLE_LENGTH: "1500"      # chars per article (0 = unlimited)
+
+      # ── Web scraper (non-RSS sites) ────────────────────────────────────────
+      SCRAPER_ENABLED: "false"
+
+      # ── AI summaries (OpenAI-compatible) ───────────────────────────────────
+      AI_SUMMARY_ENABLED: "false"
+      AI_API_BASE_URL: "https://api.openai.com/v1"  # swap for local Ollama endpoint
+      AI_MODEL: "gpt-4o-mini"
+      AI_SUMMARY_MAX_TOKENS: "120"
+
+      # ── PDF appearance ─────────────────────────────────────────────────────
+      PDF_THEME: "light"                  # "light" or "dark"
+      PDF_PAPER_SIZE: "A5"               # "A5" (reMarkable native) or "A4"
+      PDF_COLUMNS: "1"                    # news columns: 1 or 2
