@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — NewspaSync{% endblock %}
+
+{% block content %}
+
+<div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; margin-bottom: 20px;">
+
+  <!-- ── Status card ── -->
+  <div class="card">
+    <div class="card-title">Status</div>
+
+    <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
+      <tr>
+        <td style="padding: 7px 0; color: #666; width: 90px;">Last run</td>
+        <td style="padding: 7px 0;">{{ state.last_run or '—' }}</td>
+      </tr>
+      <tr>
+        <td style="padding: 7px 0; color: #666;">Result</td>
+        <td style="padding: 7px 0;">
+          {% if state.last_status == 'success' %}
+            <span class="badge badge-success">Success</span>
+          {% elif state.last_status == 'error' %}
+            <span class="badge badge-error">Error</span>
+          {% elif state.last_status == 'running' %}
+            <span class="badge badge-running">Running…</span>
+          {% else %}
+            <span class="badge badge-idle">Not run yet</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% if state.last_error %}
+      <tr>
+        <td colspan="2" style="padding: 4px 0 8px; color: #c0392b; font-size: 0.8rem; line-height: 1.4;">
+          {{ state.last_error }}
+        </td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td style="padding: 7px 0; color: #666;">Next run</td>
+        <td style="padding: 7px 0;">{{ next_run or '—' }}</td>
+      </tr>
+    </table>
+
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #eee;">
+      <form method="post" action="/run">
+        <button
+          class="btn btn-primary"
+          {% if state.last_status == 'running' %}disabled{% endif %}
+          style="width: 100%;"
+        >
+          {% if state.last_status == 'running' %}
+            ⏳ Generating…
+          {% else %}
+            ▶ Generate Now
+          {% endif %}
+        </button>
+      </form>
+      {% if state.last_status == 'running' %}
+      <p style="margin-top: 10px; font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center;">
+        Refresh the page to see updated status
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Recent issues ── -->
+  <div class="card">
+    <div class="card-title">Recent Issues</div>
+
+    {% if pdfs %}
+    <ul style="list-style: none;">
+      {% for pdf in pdfs %}
+      <li style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-family: -apple-system, sans-serif;
+        font-size: 0.875rem;
+      ">
+        <span>
+          {{ pdf | replace('newspaper-', '') | replace('.pdf', '') }}
+          {% if loop.first %}
+          <span class="badge badge-success" style="margin-left: 6px; font-size: 0.65rem;">Latest</span>
+          {% endif %}
+        </span>
+        <a href="/pdf/{{ pdf }}" target="_blank" class="btn btn-ghost btn-sm">Open PDF</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted" style="padding: 10px 0;">
+      No PDFs yet. Click <strong>Generate Now</strong> to create the first issue.
+    </p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ── PDF preview ── -->
+{% if latest_pdf %}
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 14px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-title" style="margin: 0; border: none; padding: 0;">
+      Latest Issue Preview
+      <span style="font-weight: 400; color: #888; margin-left: 8px;">
+        {{ latest_pdf | replace('newspaper-', '') | replace('.pdf', '') }}
+      </span>
+    </div>
+    <a href="/pdf/{{ latest_pdf }}" target="_blank" class="btn btn-ghost btn-sm">Open full screen</a>
+  </div>
+  <iframe
+    src="/pdf/{{ latest_pdf }}"
+    style="width: 100%; height: 720px; border: none; display: block;"
+    title="Latest newspaper preview"
+  ></iframe>
+</div>
+{% endif %}
+
+{% endblock %}

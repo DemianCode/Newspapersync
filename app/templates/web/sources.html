@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}RSS Sources — NewspaSync{% endblock %}
+
+{% block content %}
+
+{% if saved %}
+<div class="flash flash-success">✓ Sources saved.</div>
+{% endif %}
+
+<!-- ── Existing feeds ── -->
+<div class="card">
+  <div class="card-title">RSS Feeds ({{ feeds | length }})</div>
+
+  {% if feeds %}
+
+  <!-- Column headers -->
+  <div style="
+    display: grid;
+    grid-template-columns: 200px 1fr 80px 100px 60px;
+    gap: 10px;
+    padding: 0 0 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #eee;
+    font-family: -apple-system, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #888;
+  ">
+    <span>Name</span>
+    <span>Feed URL</span>
+    <span>Max items</span>
+    <span></span>
+    <span></span>
+  </div>
+
+  {% for feed in feeds %}
+  <div style="display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f5f5f5;">
+
+    <!-- Save form (editable row) -->
+    <form
+      method="post"
+      action="/sources/update"
+      style="flex: 1; display: grid; grid-template-columns: 200px 1fr 80px 100px; gap: 10px; align-items: center;"
+    >
+      <input type="hidden" name="index" value="{{ loop.index0 }}">
+      <input type="text"   name="name"      value="{{ feed.name }}"             required style="width: 100%;">
+      <input type="url"    name="url"        value="{{ feed.url }}"              required style="width: 100%;">
+      <input type="number" name="max_items"  value="{{ feed.max_items or 5 }}"  min="1" max="50" style="width: 100%;">
+      <button class="btn btn-sm btn-primary">Save</button>
+    </form>
+
+    <!-- Delete form (separate, so no nesting) -->
+    <form method="post" action="/sources/delete">
+      <input type="hidden" name="index" value="{{ loop.index0 }}">
+      <button
+        class="btn btn-sm btn-danger"
+        onclick="return confirm('Remove {{ feed.name | replace("'", "\\'") }}?')"
+      >Delete</button>
+    </form>
+
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <p class="text-muted" style="padding: 8px 0;">No feeds configured yet. Add one below.</p>
+  {% endif %}
+</div>
+
+<!-- ── Add new feed ── -->
+<div class="card">
+  <div class="card-title">Add New Feed</div>
+
+  <form method="post" action="/sources/add">
+    <div style="
+      display: grid;
+      grid-template-columns: 220px 1fr 90px auto;
+      gap: 12px;
+      align-items: end;
+    ">
+      <div>
+        <label class="field-label" for="new-name">Name</label>
+        <input type="text" id="new-name" name="name" placeholder="e.g. BBC World" required style="width: 100%;">
+      </div>
+      <div>
+        <label class="field-label" for="new-url">Feed URL</label>
+        <input type="url" id="new-url" name="url" placeholder="https://feeds.example.com/rss.xml" required style="width: 100%;">
+      </div>
+      <div>
+        <label class="field-label" for="new-max">Max items</label>
+        <input type="number" id="new-max" name="max_items" value="5" min="1" max="50" style="width: 100%;">
+      </div>
+      <div>
+        <button class="btn btn-primary">Add Feed</button>
+      </div>
+    </div>
+  </form>
+
+  <p class="text-muted" style="margin-top: 14px; line-height: 1.5;">
+    Changes take effect on the next generation run.<br>
+    The feed URL must be a valid RSS or Atom feed.
+  </p>
+</div>
+
+<!-- ── Tips ── -->
+<div class="card" style="background: #fafaf7; border-color: #e8e5dd;">
+  <div class="card-title">Popular feeds to try</div>
+  <table style="font-family: -apple-system, sans-serif; font-size: 0.85rem; border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr style="color: #666; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <th style="text-align: left; padding: 4px 0; font-weight: 600; width: 180px;">Source</th>
+        <th style="text-align: left; padding: 4px 0; font-weight: 600;" class="mono">URL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in [
+        ("BBC World",         "https://feeds.bbci.co.uk/news/world/rss.xml"),
+        ("Reuters Top News",  "https://feeds.reuters.com/reuters/topNews"),
+        ("Hacker News Top",   "https://hnrss.org/frontpage?points=100"),
+        ("The Verge",         "https://www.theverge.com/rss/index.xml"),
+        ("Ars Technica",      "https://feeds.arstechnica.com/arstechnica/index"),
+        ("Science Daily",     "https://www.sciencedaily.com/rss/top/science.xml"),
+        ("NASA Breaking News","https://www.nasa.gov/rss/dyn/breaking_news.rss"),
+      ] %}
+      <tr style="border-top: 1px solid #eee;">
+        <td style="padding: 6px 0; color: #333;">{{ row[0] }}</td>
+        <td style="padding: 6px 0;" class="mono" style="color: #555;">{{ row[1] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

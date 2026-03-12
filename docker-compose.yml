@@ -4,11 +4,17 @@ services:
     container_name: newspapersync
     restart: unless-stopped
     env_file: .env                        # all secrets live in .env (gitignored)
+    ports:
+      - "8080:8080"                       # web UI — visit http://localhost:8080
     volumes:
       - ./config:/app/config              # sources.yml, token files
       - ./output:/app/output              # generated PDFs
       - ./rmapi:/root/.config/rmapi       # rmapi auth state (persists across restarts)
     environment:
+      # ── Web UI ─────────────────────────────────────────────────────────────
+      WEB_ENABLED: "true"                 # set to "false" to disable the web UI
+      WEB_PORT: "8080"
+
       # ── Timezone ───────────────────────────────────────────────────────────
       TZ: "Australia/Sydney"
 
