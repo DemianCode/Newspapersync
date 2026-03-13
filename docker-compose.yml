@@ -9,7 +9,7 @@ services:
     volumes:
       - ./config:/app/config              # sources.yml, token files
       - ./output:/app/output              # generated PDFs
-      - ./rmapi/.rmapi:/root/.rmapi        # rmapi auth token (ddvk/rmapi uses ~/.rmapi)
+      - ./rmapi:/root/rmapi-config          # rmapi auth token directory (persists across restarts)
     environment:
       # ── Web UI ─────────────────────────────────────────────────────────────
       WEB_ENABLED: "true"                 # set to "false" to disable the web UI
@@ -25,6 +25,7 @@ services:
       # ── reMarkable sync ────────────────────────────────────────────────────
       # Auth rmapi before first run — see README for instructions
       REMARKABLE_SYNC_METHOD: "rmapi"
+      RMAPI_CONFIG: "/root/rmapi-config/.rmapi"  # file path inside the mounted directory
       RMAPI_FORCE_SCHEMA_VERSION: "4"     # force reMarkable new sync protocol (v4)
       REMARKABLE_FOLDER: "Newspaper"
       REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
