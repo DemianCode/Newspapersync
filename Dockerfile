@@ -18,8 +18,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 # Install rmapi binary (pinned version)
 RUN --mount=type=cache,target=/tmp/rmapi-cache \
-    RMAPI_VERSION="0.0.25" && \
-    RMAPI_URL="https://github.com/juruen/rmapi/releases/download/v${RMAPI_VERSION}/rmapi-linuxx86-64.tar.gz" && \
+    RMAPI_VERSION="0.0.32" && \
+    RMAPI_URL="https://github.com/ddvk/rmapi/releases/download/v${RMAPI_VERSION}/rmapi-linux-amd64.tar.gz" && \
     if [ ! -f /tmp/rmapi-cache/rmapi.tar.gz ] || ! tar -tzf /tmp/rmapi-cache/rmapi.tar.gz > /dev/null 2>&1; then \
         curl -fsSL "$RMAPI_URL" -o /tmp/rmapi-cache/rmapi.tar.gz; \
     fi && \
