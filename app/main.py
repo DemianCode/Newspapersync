@@ -25,6 +25,8 @@ from datetime import datetime
 
 from apscheduler.triggers.cron import CronTrigger
 
+from app import config_loader as cfg
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -82,7 +84,7 @@ def _run_scheduler_only() -> None:
         logger.info("RUN_ON_START=true — running immediately")
         run_pipeline()
 
-    scheduler = BlockingScheduler(timezone=os.environ.get("TZ", "UTC"))
+    scheduler = BlockingScheduler(timezone=cfg.get("TZ", "UTC"))
     scheduler.add_job(
         run_pipeline,
         trigger=CronTrigger(hour=hour, minute=minute),
@@ -116,7 +118,7 @@ def _run_with_web() -> None:
         hour, minute, port,
     )
 
-    scheduler = BackgroundScheduler(timezone=os.environ.get("TZ", "UTC"))
+    scheduler = BackgroundScheduler(timezone=cfg.get("TZ", "UTC"))
     scheduler.add_job(
         run_pipeline_tracked,
         trigger=CronTrigger(hour=hour, minute=minute),
@@ -153,7 +155,7 @@ def _run_with_web() -> None:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _parse_schedule_time() -> tuple[int, int]:
-    schedule_time = os.environ.get("SCHEDULE_TIME", "06:00")
+    schedule_time = cfg.get("SCHEDULE_TIME", "06:00")
     try:
         hour, minute = schedule_time.split(":")
         return int(hour), int(minute)

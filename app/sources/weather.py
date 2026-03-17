@@ -6,9 +6,10 @@ Returns current conditions + hourly forecast for today.
 from __future__ import annotations
 
 import logging
-import os
 
 import requests
+
+from app import config_loader as cfg
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +27,19 @@ _WMO_CODES = {
 
 
 def fetch() -> list[dict]:
-    if os.environ.get("WEATHER_ENABLED", "true").lower() != "true":
+    if cfg.get("WEATHER_ENABLED", "true").lower() != "true":
         return []
 
-    lat = os.environ.get("WEATHER_LAT", "")
-    lon = os.environ.get("WEATHER_LON", "")
-    if not lat or not lon or lat == "YOUR_LAT":
-        logger.warning("Weather disabled — set WEATHER_LAT and WEATHER_LON in docker-compose.yml")
+    lat = cfg.get("WEATHER_LAT", "")
+    lon = cfg.get("WEATHER_LON", "")
+    if not lat or not lon or lat in ("YOUR_LAT", ""):
+        logger.warning("Weather disabled — set WEATHER_LAT and WEATHER_LON in Settings or docker-compose.yml")
         return []
 
-    units = os.environ.get("WEATHER_UNITS", "celsius").lower()
+    units = cfg.get("WEATHER_UNITS", "celsius").lower()
     temp_unit = "celsius" if units == "celsius" else "fahrenheit"
     temp_symbol = "°C" if temp_unit == "celsius" else "°F"
-    location = os.environ.get("WEATHER_LOCATION_NAME", "")
+    location = cfg.get("WEATHER_LOCATION_NAME", "")
 
     try:
         resp = requests.get(_BASE_URL, params={

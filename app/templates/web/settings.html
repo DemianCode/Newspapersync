@@ -5,7 +5,7 @@
 
 {% if saved %}
 <div class="flash flash-success" style="margin-bottom: 20px;">
-  Appearance settings saved. They will apply on the next generation run.
+  Settings saved — changes take effect on the next generation run.
 </div>
 {% endif %}
 
@@ -13,114 +13,65 @@
      EDITABLE: Appearance
      ══════════════════════════════════════════════════════════════════════ -->
 <form method="post" action="/settings/appearance">
-<div class="card" style="margin-bottom: 24px;">
-  <div class="card-title">Appearance <span style="font-weight: 400; font-size: 0.72rem; letter-spacing: 0; text-transform: none; color: #888;">— editable here, takes effect next generation</span></div>
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-title">Appearance</div>
 
-  <!-- Newspaper name -->
   <div style="margin-bottom: 18px;">
     <label class="field-label" for="newspaper_name">Newspaper Name</label>
     <input type="text" id="newspaper_name" name="newspaper_name"
       value="{{ appearance.newspaper_name }}"
-      style="width: 100%; max-width: 400px;"
-      placeholder="The Daily Digest">
+      style="width: 100%; max-width: 380px;" placeholder="The Daily Digest">
   </div>
 
-  <!-- Theme -->
   <div style="margin-bottom: 20px;">
     <div class="field-label" style="margin-bottom: 10px;">Theme</div>
     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
 
-      <!-- Traditional -->
-      <label style="cursor: pointer; flex: 1; min-width: 170px;">
-        <input type="radio" name="theme" value="traditional"
-          {% if appearance.theme == 'traditional' %}checked{% endif %}
-          style="display: none;" class="theme-radio">
-        <div class="theme-card {% if appearance.theme == 'traditional' %}theme-card-active{% endif %}" data-theme="traditional">
-          <div class="theme-preview" style="
-            font-family: 'Liberation Serif', Georgia, serif;
-            background: #fff;
-            border: 2px solid #111;
-            padding: 8px 10px;
-            border-radius: 2px;
-            margin-bottom: 6px;
-          ">
-            <div style="font-size: 11px; font-weight: 900; text-align: center; border-bottom: 1px solid #111; padding-bottom: 4px; margin-bottom: 4px; letter-spacing: 0.05em;">THE DAILY DIGEST</div>
-            <div style="font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #888; margin-bottom: 3px; color: #333;">World News</div>
-            <div style="font-size: 7.5px; font-weight: bold; line-height: 1.2; margin-bottom: 2px;">Headline story goes here</div>
-            <div style="font-size: 6.5px; color: #444; line-height: 1.3;">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do eiusmod...</div>
+      {% for theme_id, theme_label, theme_desc, preview_style in [
+        ('traditional', 'Traditional', 'Classic serif newspaper',
+         'font-family:Georgia,serif;background:#fff;border:2px solid #111;'),
+        ('retro',        'Retro',       '80s tech newsletter',
+         'font-family:"Courier New",monospace;background:#fdf6e3;border:2px solid #5a3e1b;'),
+        ('readable',     'Readable',    'Dyslexia-friendly sans-serif',
+         'font-family:Verdana,Arial,sans-serif;background:#faf8f2;border:2px solid #c8b89a;'),
+      ] %}
+      <label style="cursor:pointer; flex:1; min-width:150px;">
+        <input type="radio" name="theme" value="{{ theme_id }}"
+          {% if appearance.theme == theme_id %}checked{% endif %}
+          style="display:none;" class="theme-radio">
+        <div class="theme-card {% if appearance.theme == theme_id %}theme-card-active{% endif %}">
+          <div style="{{ preview_style }} padding:8px 10px; border-radius:2px; margin-bottom:6px; min-height:60px;">
+            <div style="font-size:8px; font-weight:900; text-align:center; border-bottom:1px solid currentColor; padding-bottom:3px; margin-bottom:3px; letter-spacing:0.05em; text-transform:uppercase; opacity:0.9;">{{ appearance.newspaper_name or 'The Daily Digest' }}</div>
+            <div style="font-size:6.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; opacity:0.6; margin-bottom:2px;">World News</div>
+            <div style="font-size:7px; font-weight:bold; line-height:1.2; margin-bottom:2px;">Headline story goes here</div>
+            <div style="font-size:6px; opacity:0.7; line-height:1.3;">Lorem ipsum dolor sit amet consectetur adipiscing elit…</div>
           </div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center;">Traditional</div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">Classic serif newspaper</div>
+          <div style="font-family:-apple-system,sans-serif; font-size:0.8rem; font-weight:600; text-align:center;">{{ theme_label }}</div>
+          <div style="font-family:-apple-system,sans-serif; font-size:0.72rem; color:#777; text-align:center;">{{ theme_desc }}</div>
         </div>
       </label>
-
-      <!-- Retro -->
-      <label style="cursor: pointer; flex: 1; min-width: 170px;">
-        <input type="radio" name="theme" value="retro"
-          {% if appearance.theme == 'retro' %}checked{% endif %}
-          style="display: none;" class="theme-radio">
-        <div class="theme-card {% if appearance.theme == 'retro' %}theme-card-active{% endif %}" data-theme="retro">
-          <div class="theme-preview" style="
-            font-family: 'Liberation Mono', 'Courier New', monospace;
-            background: #fdf6e3;
-            border: 2px solid #5a3e1b;
-            padding: 8px 10px;
-            border-radius: 0;
-          ">
-            <div style="font-size: 9px; font-weight: 900; text-align: center; letter-spacing: 0.12em; color: #2a1800; border-bottom: 2px solid #5a3e1b; padding-bottom: 3px; margin-bottom: 4px; text-transform: uppercase;">*** TECH NEWS ***</div>
-            <div style="font-size: 6px; font-weight: 700; color: #8b4513; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px;">[ WORLD NEWS ]</div>
-            <div style="font-size: 7px; font-weight: bold; color: #1a0800; line-height: 1.2; margin-bottom: 2px;">HEADLINE GOES HERE</div>
-            <div style="font-size: 6px; color: #3d2b1f; line-height: 1.4;">Lorem ipsum dolor sit amet consec adipiscing elit eiusmod tempor...</div>
-          </div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 6px;">Retro</div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">80s tech newsletter</div>
-        </div>
-      </label>
-
-      <!-- Readable -->
-      <label style="cursor: pointer; flex: 1; min-width: 170px;">
-        <input type="radio" name="theme" value="readable"
-          {% if appearance.theme == 'readable' %}checked{% endif %}
-          style="display: none;" class="theme-radio">
-        <div class="theme-card {% if appearance.theme == 'readable' %}theme-card-active{% endif %}" data-theme="readable">
-          <div class="theme-preview" style="
-            font-family: 'OpenDyslexic', 'DejaVu Sans', Verdana, Arial, sans-serif;
-            background: #faf8f2;
-            border: 2px solid #c8b89a;
-            padding: 8px 10px;
-            border-radius: 4px;
-          ">
-            <div style="font-size: 10px; font-weight: 700; text-align: center; color: #2d2416; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 2px solid #c8b89a; letter-spacing: 0.02em;">The Daily Digest</div>
-            <div style="font-size: 6.5px; font-weight: 700; color: #6b5c42; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; background: #ede8dc; padding: 1px 4px; display: inline-block; border-radius: 2px;">World News</div>
-            <div style="font-size: 7.5px; font-weight: bold; color: #1a1208; line-height: 1.4; margin-bottom: 3px;">Headline goes here</div>
-            <div style="font-size: 6.5px; color: #4a3d2d; line-height: 1.6; letter-spacing: 0.02em;">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed eiusmod...</div>
-          </div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 6px;">Readable</div>
-          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">Dyslexia-friendly sans-serif</div>
-        </div>
-      </label>
+      {% endfor %}
 
     </div>
   </div>
 
-  <!-- Font size, paper size, columns -->
-  <div class="form-row" style="gap: 24px; flex-wrap: wrap; margin-bottom: 18px;">
+  <div class="form-row" style="gap:24px; flex-wrap:wrap; margin-bottom:18px;">
     <div>
-      <label class="field-label" for="font_size">Base Font Size (pt)</label>
+      <label class="field-label" for="font_size">Font Size (pt)</label>
       <input type="number" id="font_size" name="font_size"
-        value="{{ appearance.font_size }}" min="7" max="16" style="width: 70px;">
-      <span style="font-family: -apple-system, sans-serif; font-size: 0.78rem; color: #888; margin-left: 6px;">7 – 16 pt</span>
+        value="{{ appearance.font_size }}" min="7" max="16" style="width:70px;">
+      <span style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-left:6px;">7–16 pt</span>
     </div>
     <div>
       <label class="field-label" for="paper_size">Paper Size</label>
-      <select id="paper_size" name="paper_size" style="padding: 7px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85rem; background: white;">
-        <option value="A5" {% if appearance.paper_size == 'A5' %}selected{% endif %}>A5 (reMarkable native)</option>
+      <select id="paper_size" name="paper_size" style="padding:7px 10px;border:1px solid #ccc;border-radius:3px;font-size:0.85rem;background:white;">
+        <option value="A5" {% if appearance.paper_size == 'A5' %}selected{% endif %}>A5 — reMarkable native</option>
         <option value="A4" {% if appearance.paper_size == 'A4' %}selected{% endif %}>A4</option>
       </select>
     </div>
     <div>
       <label class="field-label" for="columns">News Columns</label>
-      <select id="columns" name="columns" style="padding: 7px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85rem; background: white;">
+      <select id="columns" name="columns" style="padding:7px 10px;border:1px solid #ccc;border-radius:3px;font-size:0.85rem;background:white;">
         <option value="1" {% if appearance.columns == 1 %}selected{% endif %}>1 column</option>
         <option value="2" {% if appearance.columns == 2 %}selected{% endif %}>2 columns</option>
       </select>
@@ -131,54 +82,225 @@
 </div>
 </form>
 
-<style>
-  .theme-card {
-    border: 2px solid #e0e0e0;
-    border-radius: 4px;
-    padding: 10px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .theme-card:hover { border-color: #aaa; }
-  .theme-card-active { border-color: #1a1a1a !important; box-shadow: 0 0 0 1px #1a1a1a; }
-  .theme-preview { min-height: 72px; }
-</style>
-<script>
-  document.querySelectorAll('.theme-radio').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      document.querySelectorAll('.theme-card').forEach(function(c) {
-        c.classList.remove('theme-card-active');
-      });
-      this.closest('label').querySelector('.theme-card').classList.add('theme-card-active');
-    });
-  });
-</script>
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Weather
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Weather</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="WEATHER_ENABLED" value="false">
+      <input type="checkbox" name="WEATHER_ENABLED" value="true"
+        {% if editable.Weather.WEATHER_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div class="form-row" style="flex-wrap:wrap;gap:16px;margin-bottom:14px;">
+    <div>
+      <label class="field-label" for="WEATHER_LAT">Latitude</label>
+      <input type="text" id="WEATHER_LAT" name="WEATHER_LAT"
+        value="{{ editable.Weather.WEATHER_LAT }}"
+        placeholder="e.g. -33.8688" style="width:130px;">
+    </div>
+    <div>
+      <label class="field-label" for="WEATHER_LON">Longitude</label>
+      <input type="text" id="WEATHER_LON" name="WEATHER_LON"
+        value="{{ editable.Weather.WEATHER_LON }}"
+        placeholder="e.g. 151.2093" style="width:130px;">
+    </div>
+    <div>
+      <label class="field-label" for="WEATHER_LOCATION_NAME">Location Name</label>
+      <input type="text" id="WEATHER_LOCATION_NAME" name="WEATHER_LOCATION_NAME"
+        value="{{ editable.Weather.WEATHER_LOCATION_NAME }}"
+        placeholder="e.g. Sydney" style="width:160px;">
+    </div>
+    <div>
+      <label class="field-label" for="WEATHER_UNITS">Units</label>
+      <select id="WEATHER_UNITS" name="WEATHER_UNITS" style="padding:7px 10px;border:1px solid #ccc;border-radius:3px;font-size:0.85rem;background:white;">
+        <option value="celsius"    {% if editable.Weather.WEATHER_UNITS == 'celsius' %}selected{% endif %}>Celsius (°C)</option>
+        <option value="fahrenheit" {% if editable.Weather.WEATHER_UNITS == 'fahrenheit' %}selected{% endif %}>Fahrenheit (°F)</option>
+      </select>
+    </div>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Find coordinates: right-click any location on
+    <a href="https://maps.google.com" target="_blank" style="color:#1a1a1a;">Google Maps</a>
+    → copy the lat/lon shown.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Weather</button>
+</div>
+</form>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
-     READ-ONLY: docker-compose.yml environment variables
+     EDITABLE: Schedule
      ══════════════════════════════════════════════════════════════════════ -->
-<div class="card" style="background: #fffbf0; border-color: #f0e8c8; margin-bottom: 24px;">
-  <p style="font-family: -apple-system, sans-serif; font-size: 0.875rem; line-height: 1.6; color: #6b5800;">
-    <strong>To change the settings below:</strong> Edit <span class="mono">docker-compose.yml</span>, then run
-    <span class="mono">docker compose up -d --force-recreate</span>.<br>
-    Secrets (passwords, API keys) live in <span class="mono">.env</span> — values there are intentionally hidden.
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Schedule</div>
+
+  <div class="form-row" style="flex-wrap:wrap;gap:16px;margin-bottom:14px;align-items:flex-end;">
+    <div>
+      <label class="field-label" for="SCHEDULE_TIME">Daily run time (HH:MM)</label>
+      <input type="text" id="SCHEDULE_TIME" name="SCHEDULE_TIME"
+        value="{{ editable.Schedule.SCHEDULE_TIME }}"
+        placeholder="06:00" style="width:90px;" pattern="\d{2}:\d{2}">
+    </div>
+    <div>
+      <label class="field-label" for="TZ">Timezone</label>
+      <input type="text" id="TZ" name="TZ"
+        value="{{ editable.Schedule.TZ }}"
+        placeholder="UTC" style="width:200px;"
+        list="tz-suggestions">
+      <datalist id="tz-suggestions">
+        <option value="UTC">
+        <option value="America/New_York">
+        <option value="America/Chicago">
+        <option value="America/Denver">
+        <option value="America/Los_Angeles">
+        <option value="Europe/London">
+        <option value="Europe/Paris">
+        <option value="Europe/Berlin">
+        <option value="Europe/Amsterdam">
+        <option value="Asia/Tokyo">
+        <option value="Asia/Shanghai">
+        <option value="Asia/Singapore">
+        <option value="Asia/Kolkata">
+        <option value="Australia/Sydney">
+        <option value="Australia/Melbourne">
+        <option value="Pacific/Auckland">
+      </datalist>
+    </div>
+  </div>
+
+  <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
+      Schedule and timezone changes take effect after a container restart:
+      <span class="mono">docker compose up -d --force-recreate</span>
+    </p>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Schedule</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: RSS
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">RSS / News</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="RSS_ENABLED" value="false">
+      <input type="checkbox" name="RSS_ENABLED" value="true"
+        {% if editable.RSS.RSS_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div class="form-row" style="flex-wrap:wrap;gap:16px;margin-bottom:14px;">
+    <div>
+      <label class="field-label" for="RSS_MAX_ARTICLES_PER_FEED">Max articles per feed</label>
+      <input type="number" id="RSS_MAX_ARTICLES_PER_FEED" name="RSS_MAX_ARTICLES_PER_FEED"
+        value="{{ editable.RSS.RSS_MAX_ARTICLES_PER_FEED }}" min="1" max="20" style="width:70px;">
+    </div>
+    <div>
+      <label class="field-label" for="RSS_MAX_ARTICLE_LENGTH">Max article length (chars, 0 = unlimited)</label>
+      <input type="number" id="RSS_MAX_ARTICLE_LENGTH" name="RSS_MAX_ARTICLE_LENGTH"
+        value="{{ editable.RSS.RSS_MAX_ARTICLE_LENGTH }}" min="0" style="width:90px;">
+    </div>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Manage individual feeds on the <a href="/sources" style="color:#1a1a1a;">RSS Sources</a> page.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save RSS</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Email
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Email Inbox</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="EMAIL_ENABLED" value="false">
+      <input type="checkbox" name="EMAIL_ENABLED" value="true"
+        {% if editable.Email.EMAIL_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div class="form-row" style="flex-wrap:wrap;gap:16px;margin-bottom:14px;">
+    <div>
+      <label class="field-label" for="EMAIL_IMAP_HOST">IMAP Host</label>
+      <input type="text" id="EMAIL_IMAP_HOST" name="EMAIL_IMAP_HOST"
+        value="{{ editable.Email.EMAIL_IMAP_HOST }}"
+        placeholder="imap.gmail.com" style="width:200px;">
+    </div>
+    <div>
+      <label class="field-label" for="EMAIL_IMAP_PORT">Port</label>
+      <input type="number" id="EMAIL_IMAP_PORT" name="EMAIL_IMAP_PORT"
+        value="{{ editable.Email.EMAIL_IMAP_PORT }}"
+        placeholder="993" style="width:80px;">
+    </div>
+    <div>
+      <label class="field-label" for="EMAIL_MAX_ITEMS">Max unread messages</label>
+      <input type="number" id="EMAIL_MAX_ITEMS" name="EMAIL_MAX_ITEMS"
+        value="{{ editable.Email.EMAIL_MAX_ITEMS }}" min="1" max="50" style="width:70px;">
+    </div>
+  </div>
+
+  <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
+      <strong>Email username &amp; password</strong> are secrets — set them in your
+      <span class="mono">.env</span> file only and never edit them here.
+    </p>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Email</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     READ-ONLY: docker-compose.yml env vars (reMarkable, AI, etc.)
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="card" style="background:#fffbf0;border-color:#f0e8c8;margin-bottom:20px;">
+  <p style="font-family:-apple-system,sans-serif;font-size:0.875rem;line-height:1.6;color:#6b5800;">
+    <strong>Settings below require editing <span class="mono">docker-compose.yml</span></strong>
+    then restarting: <span class="mono">docker compose up -d --force-recreate</span>.<br>
+    Secrets in <span class="mono">.env</span> are intentionally hidden.
   </p>
 </div>
 
 {% for group, vars in config.items() %}
-<div class="card">
+<div class="card" style="margin-bottom:16px;">
   <div class="card-title">{{ group }}</div>
-  <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
+  <table style="width:100%;border-collapse:collapse;font-family:-apple-system,sans-serif;font-size:0.875rem;">
     {% for var, value in vars.items() %}
-    <tr style="border-bottom: 1px solid #f5f5f5;">
-      <td style="padding: 8px 0; width: 300px; color: #555;" class="mono">{{ var }}</td>
-      <td style="padding: 8px 0;">
-        {% if value and value not in ('YOUR_LAT', 'YOUR_LON', 'My City') %}
-          <span style="color: #1a1a1a;">{{ value }}</span>
-        {% elif value in ('YOUR_LAT', 'YOUR_LON', 'My City') %}
-          <span style="color: #c0392b; font-weight: 600;">{{ value }}</span>
-          <span style="color: #c0392b; font-size: 0.78rem; margin-left: 6px;">⚠ not configured</span>
+    <tr style="border-bottom:1px solid #f5f5f5;">
+      <td style="padding:8px 0;width:300px;color:#555;" class="mono">{{ var }}</td>
+      <td style="padding:8px 0;">
+        {% if value and value not in ('YOUR_LAT','YOUR_LON','My City') %}
+          {{ value }}
+        {% elif value in ('YOUR_LAT','YOUR_LON','My City') %}
+          <span style="color:#c0392b;font-weight:600;">{{ value }}</span>
+          <span style="color:#c0392b;font-size:0.78rem;margin-left:6px;">⚠ not configured</span>
         {% else %}
-          <span style="color: #bbb; font-style: italic;">not set</span>
+          <span style="color:#bbb;font-style:italic;">not set</span>
         {% endif %}
       </td>
     </tr>
@@ -188,24 +310,38 @@
 {% endfor %}
 
 <!-- ── Quick reference ── -->
-<div class="card" style="background: #fafaf7; border-color: #e8e5dd;">
+<div class="card" style="background:#fafaf7;border-color:#e8e5dd;">
   <div class="card-title">Quick reference</div>
-  <table style="font-family: -apple-system, sans-serif; font-size: 0.85rem; border-collapse: collapse; width: 100%;">
-    <tbody>
-      {% for label, cmd in [
-        ("Restart container",            "docker compose up -d --force-recreate"),
-        ("View live logs",               "docker compose logs -f"),
-        ("Run generation now (CLI)",     "docker compose exec newspapersync python -m app.main --now"),
-        ("Auth rmapi (first-time)",      "docker compose run --rm newspapersync rmapi"),
-        ("Rebuild after code changes",   "docker compose up -d --build"),
-      ] %}
-      <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 7px 0; color: #555; width: 240px;">{{ label }}</td>
-        <td style="padding: 7px 0;" class="mono">{{ cmd }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+  <table style="font-family:-apple-system,sans-serif;font-size:0.85rem;border-collapse:collapse;width:100%;">
+    {% for label, cmd in [
+      ("Restart container",          "docker compose up -d --force-recreate"),
+      ("View live logs",             "docker compose logs -f"),
+      ("Run generation now (CLI)",   "docker compose exec newspapersync python -m app.main --now"),
+      ("Auth rmapi (first-time)",    "docker compose run --rm newspapersync rmapi"),
+      ("Rebuild after code changes", "docker compose up -d --build"),
+    ] %}
+    <tr style="border-bottom:1px solid #eee;">
+      <td style="padding:7px 0;color:#555;width:240px;">{{ label }}</td>
+      <td style="padding:7px 0;" class="mono">{{ cmd }}</td>
+    </tr>
+    {% endfor %}
   </table>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .theme-card { border:2px solid #e0e0e0; border-radius:4px; padding:10px; transition:border-color 0.15s; }
+  .theme-card:hover { border-color:#aaa; }
+  .theme-card-active { border-color:#1a1a1a !important; box-shadow:0 0 0 1px #1a1a1a; }
+</style>
+<script>
+  document.querySelectorAll('.theme-radio').forEach(function(r) {
+    r.addEventListener('change', function() {
+      document.querySelectorAll('.theme-card').forEach(function(c) { c.classList.remove('theme-card-active'); });
+      this.closest('label').querySelector('.theme-card').classList.add('theme-card-active');
+    });
+  });
+</script>
 {% endblock %}

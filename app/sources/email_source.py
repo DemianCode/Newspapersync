@@ -11,18 +11,20 @@ import os
 
 from imap_tools import MailBox, AND
 
+from app import config_loader as cfg
+
 logger = logging.getLogger(__name__)
 
 
 def fetch() -> list[dict]:
-    if os.environ.get("EMAIL_ENABLED", "false").lower() != "true":
+    if cfg.get("EMAIL_ENABLED", "false").lower() != "true":
         return []
 
-    host = os.environ.get("EMAIL_IMAP_HOST", "")
-    port = int(os.environ.get("EMAIL_IMAP_PORT", "993"))
-    username = os.environ.get("EMAIL_USERNAME", "")
-    password = os.environ.get("EMAIL_PASSWORD", "")
-    max_items = int(os.environ.get("EMAIL_MAX_ITEMS", "10"))
+    host = cfg.get("EMAIL_IMAP_HOST", "")
+    port = int(cfg.get("EMAIL_IMAP_PORT", "993"))
+    username = os.environ.get("EMAIL_USERNAME", "")   # secret — .env only
+    password = os.environ.get("EMAIL_PASSWORD", "")   # secret — .env only
+    max_items = int(cfg.get("EMAIL_MAX_ITEMS", "10"))
 
     if not host or not username or not password:
         logger.warning("Email source enabled but credentials not set")
