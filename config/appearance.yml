@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NewspaSync — appearance.yml
+# Edit these settings from the web UI (Settings page) or directly here.
+# Changes take effect on the next generation run.
+# ─────────────────────────────────────────────────────────────────────────────
+
+newspaper_name: "The Daily Digest"
+
+# Theme controls the overall look of the printed newspaper.
+# Options: traditional | retro | readable
+theme: "traditional"
+
+# Base font size in points. Readable theme enforces a minimum of 10pt.
+font_size: 9
+
+# Paper size. A5 is the native reMarkable 2 page size.
+# Options: A5 | A4
+paper_size: "A5"
+
+# Number of columns for the news section.
+# Options: 1 | 2
+columns: 1

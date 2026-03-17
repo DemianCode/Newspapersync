@@ -14,7 +14,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libffi-dev \
     shared-mime-info \
     curl \
-    ca-certificates
+    ca-certificates \
+    fonts-liberation \
+    fonts-dejavu-core \
+    fonts-opendyslexic
 
 # Install rmapi binary (pinned version) and wrap it so config always lives at
 # /root/rmapi-config/.rmapi (the bind-mount path) instead of ~/.rmapi.

@@ -2,20 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Daily Newspaper — {{ generated_at }}</title>
+<title>{{ config.newspaper_name }} — {{ generated_at }}</title>
 <style>
-  /* ── Reset & base ──────────────────────────────────────────────────── */
+  /* ── Reset ──────────────────────────────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* ════════════════════════════════════════════════════════════════════════
+     TRADITIONAL THEME
+     Classic serif newspaper — Liberation Serif / Georgia
+     ════════════════════════════════════════════════════════════════════════ */
+  {% if config.theme == 'retro' %}
+  /* retro overrides below */
+  {% elif config.theme == 'readable' %}
+  /* readable overrides below */
+  {% else %}
+
   body {
-    font-family: "Georgia", "Times New Roman", serif;
-    font-size: 9pt;
+    font-family: "Liberation Serif", "Georgia", "Times New Roman", serif;
+    font-size: {{ config.font_size }}pt;
     line-height: 1.45;
     color: #111;
     background: #fff;
   }
-
-  /* ── Masthead ───────────────────────────────────────────────────────── */
   .masthead {
     text-align: center;
     border-top: 3px solid #111;
@@ -24,23 +32,17 @@
     margin-bottom: 6pt;
   }
   .masthead h1 {
-    font-size: 22pt;
+    font-size: {{ (config.font_size * 2.4) | round | int }}pt;
     font-weight: 900;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
-  .masthead .dateline {
-    font-size: 8pt;
-    letter-spacing: 0.04em;
-    color: #444;
-    margin-top: 2pt;
-  }
+  .masthead .dateline { font-size: {{ config.font_size - 1 }}pt; letter-spacing: 0.04em; color: #444; margin-top: 2pt; }
   .masthead .rule { border: none; border-top: 1px solid #111; margin: 4pt 0; }
 
-  /* ── Section headers ────────────────────────────────────────────────── */
   .section-header {
-    font-size: 7.5pt;
-    font-family: "Arial", sans-serif;
+    font-size: {{ config.font_size - 1.5 }}pt;
+    font-family: "Liberation Sans", "Arial", sans-serif;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -51,88 +53,10 @@
     color: #111;
   }
 
-  /* ── Front page ─────────────────────────────────────────────────────── */
-  .front-page {
-    break-after: page;
-  }
-
-  .front-grid {
-    display: flex;
-    gap: 10pt;
-    align-items: flex-start;
-    margin-top: 4pt;
-  }
-
-  /* ── Table of Contents ──────────────────────────────────────────────── */
-  .toc-panel { flex: 1; min-width: 0; }
-
-  .toc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 7.5pt;
-  }
-  .toc-table thead th {
-    font-size: 6.5pt;
-    font-family: "Arial", sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-bottom: 1.5px solid #111;
-    padding: 1pt 2pt 2pt;
-    color: #444;
-    text-align: left;
-  }
-  .toc-table thead th.th-pg { text-align: right; }
-
-  .toc-table td {
-    padding: 2.5pt 2pt;
-    vertical-align: top;
-    border-bottom: 1px dotted #ddd;
-    line-height: 1.3;
-  }
-  .toc-source {
-    font-size: 6pt;
-    font-family: "Arial", sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #555;
-    white-space: nowrap;
-    padding-right: 4pt;
-    width: 24%;
-  }
-  .toc-title {
-    font-family: "Georgia", serif;
-    font-size: 7.5pt;
-    color: #111;
-  }
-  .toc-pg {
-    text-align: right;
-    white-space: nowrap;
-    font-size: 6.5pt;
-    font-family: "Arial", sans-serif;
-    color: #555;
-    padding-left: 3pt;
-    width: 14pt;
-  }
-  /* WeasyPrint resolves this at render time — no JS needed */
-  a.toc-pageref {
-    text-decoration: none;
-    color: #555;
-  }
-  a.toc-pageref::after {
-    content: target-counter(attr(href), page);
-  }
-
-  .toc-section-row td {
-    padding-top: 5pt;
-    padding-bottom: 2pt;
-    border-bottom: none;
-  }
   .toc-section-label {
     display: inline-block;
-    font-size: 6pt;
-    font-family: "Arial", sans-serif;
+    font-size: {{ config.font_size - 3 }}pt;
+    font-family: "Liberation Sans", "Arial", sans-serif;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -142,179 +66,267 @@
     border-radius: 1pt;
   }
 
-  /* ── Compact weather (front page) ───────────────────────────────────── */
-  .weather-compact {
-    width: 88pt;
-    flex-shrink: 0;
-    background: #f7f7f7;
-    border: 1px solid #ccc;
-    border-radius: 2pt;
-    padding: 5pt 6pt;
-    font-family: "Arial", sans-serif;
-  }
-  .wc-label {
-    font-size: 6pt;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #555;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 2pt;
-    margin-bottom: 4pt;
-  }
-  .wc-temp {
-    font-size: 18pt;
-    font-weight: 900;
-    line-height: 1;
-    font-family: "Georgia", serif;
-    margin-bottom: 1pt;
-  }
-  .wc-condition {
-    font-size: 7.5pt;
-    color: #333;
-    margin-bottom: 4pt;
-  }
-  .wc-meta {
-    font-size: 6.5pt;
-    color: #555;
-    line-height: 1.7;
-  }
-  .wc-hourly {
-    margin-top: 5pt;
-    border-top: 1px solid #ddd;
-    padding-top: 3pt;
-  }
-  .wc-hour-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 6pt;
-    color: #555;
-    margin-bottom: 1.5pt;
-  }
+  .weather-compact { width: 88pt; flex-shrink: 0; background: #f7f7f7; border: 1px solid #ccc; border-radius: 2pt; padding: 5pt 6pt; font-family: "Liberation Sans", "Arial", sans-serif; }
+  .wc-label { font-size: {{ config.font_size - 3 }}pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 2pt; margin-bottom: 4pt; }
+  .wc-temp { font-size: 18pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; }
+  .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #333; margin-bottom: 4pt; }
+  .wc-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #555; line-height: 1.7; }
+  .wc-hourly { margin-top: 5pt; border-top: 1px solid #ddd; padding-top: 3pt; }
+  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ config.font_size - 3 }}pt; color: #555; margin-bottom: 1.5pt; }
   .wc-hour-row .h-time { font-weight: 700; color: #111; }
 
-  /* ── Weather block (full, content pages) ────────────────────────────── */
-  .weather-block {
-    background: #f7f7f7;
-    border: 1px solid #ccc;
-    padding: 5pt 7pt;
-    margin-bottom: 6pt;
-    border-radius: 2pt;
-  }
-  .weather-block .weather-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 3pt;
-  }
-  .weather-block .temp { font-size: 14pt; font-weight: bold; }
-  .weather-block .condition { font-size: 9pt; color: #333; }
-  .weather-block .meta { font-size: 7.5pt; color: #555; }
-  .weather-hourly {
-    display: flex;
-    gap: 5pt;
-    margin-top: 4pt;
-    flex-wrap: wrap;
-  }
-  .weather-hour {
-    text-align: center;
-    font-size: 6.5pt;
-    color: #444;
-    min-width: 30pt;
-  }
-  .weather-hour .hw-time { font-weight: bold; color: #111; }
+  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ config.font_size - 1.5 }}pt; }
+  .toc-table thead th { font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #111; padding: 1pt 2pt 2pt; color: #444; text-align: left; }
+  .toc-table thead th.th-pg { text-align: right; }
+  .toc-table td { padding: 2.5pt 2pt; vertical-align: top; border-bottom: 1px dotted #ddd; line-height: 1.3; }
+  .toc-source { font-size: {{ config.font_size - 3 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #555; white-space: nowrap; padding-right: 4pt; width: 24%; }
+  .toc-title { font-size: {{ config.font_size - 1.5 }}pt; color: #111; }
+  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; color: #555; padding-left: 3pt; width: 14pt; }
+  a.toc-pageref { text-decoration: none; color: #555; }
+  a.toc-pageref::after { content: target-counter(attr(href), page); }
+  .toc-section-row td { padding-top: 5pt; padding-bottom: 2pt; border-bottom: none; }
 
-  /* ── Tasks ──────────────────────────────────────────────────────────── */
-  .task-list { list-style: none; margin: 0; padding: 0; }
-  .task-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 4pt;
-    padding: 2pt 0;
-    border-bottom: 1px dotted #ddd;
-    font-size: 8.5pt;
-  }
+  .task-list { list-style: none; }
+  .task-item { display: flex; align-items: flex-start; gap: 4pt; padding: 2pt 0; border-bottom: 1px dotted #ddd; font-size: {{ config.font_size - 0.5 }}pt; }
   .task-item:last-child { border-bottom: none; }
-  .task-checkbox {
-    width: 8pt; height: 8pt;
-    border: 1.5px solid #444;
-    border-radius: 2pt;
-    flex-shrink: 0;
-    margin-top: 1pt;
-    display: inline-block;
-  }
+  .task-checkbox { width: 8pt; height: 8pt; border: 1.5px solid #444; border-radius: 2pt; flex-shrink: 0; margin-top: 1pt; display: inline-block; }
   .task-item.overdue .task-title { color: #900; }
-  .task-item .task-meta { font-size: 7pt; color: #888; }
+  .task-item .task-meta { font-size: {{ config.font_size - 2 }}pt; color: #888; }
   .task-item .task-project { font-style: italic; }
 
-  /* ── Email ──────────────────────────────────────────────────────────── */
-  .email-item {
-    padding: 3pt 0;
-    border-bottom: 1px dotted #ddd;
-    font-size: 8pt;
-  }
+  .email-item { padding: 3pt 0; border-bottom: 1px dotted #ddd; font-size: {{ config.font_size - 1 }}pt; }
   .email-item:last-child { border-bottom: none; }
-  .email-item .email-from { font-weight: bold; font-size: 7.5pt; color: #555; }
-  .email-item .email-subject { font-size: 8.5pt; }
-  .email-item .email-snippet { color: #555; font-size: 7.5pt; margin-top: 1pt; }
+  .email-item .email-from { font-weight: bold; font-size: {{ config.font_size - 1.5 }}pt; color: #555; }
+  .email-item .email-subject { font-size: {{ config.font_size - 0.5 }}pt; }
+  .email-item .email-snippet { color: #555; font-size: {{ config.font_size - 1.5 }}pt; margin-top: 1pt; }
 
-  /* ── News articles ──────────────────────────────────────────────────── */
-  {% if config.columns == 2 %}
-  .articles-grid {
-    column-count: 2;
-    column-gap: 10pt;
-    column-rule: 1px solid #ccc;
-  }
-  {% else %}
-  .articles-grid { column-count: 1; }
+  .feed-label { font-size: {{ config.font_size - 2 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #555; border-bottom: 1px solid #ddd; margin-bottom: 3pt; padding-bottom: 1pt; }
+  .article { break-inside: avoid; margin-bottom: 5pt; padding-bottom: 4pt; border-bottom: 1px dotted #ccc; }
+  .article:last-child { border-bottom: none; }
+  .article-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.25; margin-bottom: 1.5pt; }
+  .article-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #888; font-family: "Liberation Sans", "Arial", sans-serif; margin-bottom: 2pt; }
+  .article-body { font-size: {{ config.font_size - 1 }}pt; color: #222; line-height: 1.4; }
+  .article-body.ai-summary { font-style: italic; }
+
+  .footer { border-top: 1px solid #ccc; margin-top: 10pt; padding-top: 3pt; font-size: {{ config.font_size - 2.5 }}pt; color: #aaa; font-family: "Liberation Sans", "Arial", sans-serif; text-align: center; }
   {% endif %}
 
-  .feed-section { break-inside: avoid; margin-bottom: 6pt; }
+  /* ════════════════════════════════════════════════════════════════════════
+     RETRO THEME
+     80s tech newsletter — Liberation Mono, warm amber on cream
+     ════════════════════════════════════════════════════════════════════════ */
+  {% if config.theme == 'retro' %}
+  body {
+    font-family: "Liberation Mono", "Courier New", "Courier", monospace;
+    font-size: {{ config.font_size }}pt;
+    line-height: 1.5;
+    color: #1a0a00;
+    background: #fdf6e3;
+  }
+  .masthead {
+    text-align: center;
+    border-top: 3px double #5a3e1b;
+    border-bottom: 3px double #5a3e1b;
+    padding: 5pt 0;
+    margin-bottom: 8pt;
+    background: #fdf6e3;
+  }
+  .masthead h1 {
+    font-size: {{ (config.font_size * 2.1) | round | int }}pt;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #2a1000;
+  }
+  .masthead .dateline { font-size: {{ config.font_size - 1 }}pt; color: #7a5030; margin-top: 3pt; letter-spacing: 0.06em; }
+  .masthead .rule { border: none; border-top: 1px solid #8b6840; margin: 3pt 0; }
 
-  .feed-label {
-    font-size: 7pt;
-    font-family: "Arial", sans-serif;
+  .section-header {
+    font-size: {{ config.font_size - 1 }}pt;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #555;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 3pt;
-    padding-bottom: 1pt;
+    color: #8b4513;
+    border: none;
+    border-top: 1px solid #c8a87a;
+    border-bottom: 1px solid #c8a87a;
+    padding: 2pt 4pt;
+    margin: 8pt 0 4pt;
+    background: #fef0d0;
+  }
+  .section-header::before { content: "[ "; }
+  .section-header::after  { content: " ]"; }
+
+  .toc-section-label {
+    display: inline-block;
+    font-size: {{ config.font_size - 2 }}pt;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: #8b4513;
+    color: #fdf6e3;
+    padding: 1pt 4pt;
   }
 
-  .article {
-    break-inside: avoid;
-    margin-bottom: 5pt;
-    padding-bottom: 4pt;
-    border-bottom: 1px dotted #ccc;
-  }
+  .weather-compact { width: 92pt; flex-shrink: 0; background: #fef0d0; border: 1px solid #c8a87a; padding: 5pt 6pt; font-family: "Liberation Mono", "Courier New", monospace; }
+  .wc-label { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8b4513; border-bottom: 1px solid #c8a87a; padding-bottom: 2pt; margin-bottom: 4pt; }
+  .wc-temp { font-size: 16pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; color: #5a2000; }
+  .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #3d2000; margin-bottom: 4pt; }
+  .wc-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #7a5030; line-height: 1.7; }
+  .wc-hourly { margin-top: 5pt; border-top: 1px solid #c8a87a; padding-top: 3pt; }
+  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ config.font_size - 3 }}pt; color: #7a5030; margin-bottom: 1.5pt; }
+  .wc-hour-row .h-time { font-weight: 700; color: #3d2000; }
+
+  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ config.font_size - 1.5 }}pt; }
+  .toc-table thead th { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #8b4513; padding: 1pt 2pt 2pt; color: #8b4513; text-align: left; }
+  .toc-table thead th.th-pg { text-align: right; }
+  .toc-table td { padding: 2.5pt 2pt; vertical-align: top; border-bottom: 1px dotted #c8a87a; line-height: 1.35; }
+  .toc-source { font-size: {{ config.font_size - 2.5 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8b4513; white-space: nowrap; padding-right: 4pt; width: 24%; }
+  .toc-title { font-size: {{ config.font_size - 1.5 }}pt; color: #1a0a00; }
+  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ config.font_size - 2.5 }}pt; color: #8b4513; padding-left: 3pt; width: 14pt; }
+  a.toc-pageref { text-decoration: none; color: #8b4513; }
+  a.toc-pageref::after { content: target-counter(attr(href), page); }
+  .toc-section-row td { padding-top: 5pt; padding-bottom: 2pt; border-bottom: none; }
+
+  .task-list { list-style: none; }
+  .task-item { display: flex; align-items: flex-start; gap: 4pt; padding: 2pt 0; border-bottom: 1px dotted #c8a87a; font-size: {{ config.font_size - 0.5 }}pt; }
+  .task-item:last-child { border-bottom: none; }
+  .task-checkbox { width: 8pt; height: 8pt; border: 1.5px solid #8b4513; flex-shrink: 0; margin-top: 1pt; display: inline-block; }
+  .task-item.overdue .task-title { color: #8b0000; }
+  .task-item .task-meta { font-size: {{ config.font_size - 2 }}pt; color: #7a5030; }
+  .task-item .task-project { font-style: italic; }
+
+  .email-item { padding: 3pt 0; border-bottom: 1px dotted #c8a87a; font-size: {{ config.font_size - 1 }}pt; }
+  .email-item:last-child { border-bottom: none; }
+  .email-item .email-from { font-weight: bold; color: #8b4513; }
+  .email-item .email-subject { }
+  .email-item .email-snippet { color: #7a5030; font-size: {{ config.font_size - 1.5 }}pt; margin-top: 1pt; }
+
+  .feed-label { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8b4513; border-bottom: 1px solid #c8a87a; margin-bottom: 3pt; padding-bottom: 1pt; }
+  .article { break-inside: avoid; margin-bottom: 5pt; padding-bottom: 4pt; border-bottom: 1px dotted #c8a87a; }
   .article:last-child { border-bottom: none; }
-  .article-title {
-    font-size: 9pt;
-    font-weight: bold;
-    line-height: 1.25;
-    margin-bottom: 1.5pt;
-  }
-  .article-meta {
-    font-size: 6.5pt;
-    color: #888;
-    font-family: "Arial", sans-serif;
-    margin-bottom: 2pt;
-  }
-  .article-body { font-size: 8pt; color: #222; line-height: 1.4; }
-  .article-body.ai-summary { font-style: italic; }
+  .article-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.3; margin-bottom: 1.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+  .article-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #7a5030; margin-bottom: 2pt; }
+  .article-body { font-size: {{ config.font_size - 1 }}pt; color: #3d2000; line-height: 1.5; }
+  .article-body.ai-summary { font-style: italic; color: #7a5030; }
 
-  /* ── Footer ─────────────────────────────────────────────────────────── */
-  .footer {
-    border-top: 1px solid #ccc;
-    margin-top: 10pt;
-    padding-top: 3pt;
-    font-size: 6.5pt;
-    color: #aaa;
-    font-family: "Arial", sans-serif;
-    text-align: center;
+  .footer { border-top: 2px solid #c8a87a; margin-top: 10pt; padding-top: 3pt; font-size: {{ config.font_size - 2.5 }}pt; color: #c8a87a; text-align: center; letter-spacing: 0.06em; }
+  {% endif %}
+
+  /* ════════════════════════════════════════════════════════════════════════
+     READABLE THEME
+     Dyslexia-friendly — OpenDyslexic / DejaVu Sans, warm cream, generous spacing
+     ════════════════════════════════════════════════════════════════════════ */
+  {% if config.theme == 'readable' %}
+  {% set fs = [config.font_size, 10] | max %}
+  body {
+    font-family: "OpenDyslexic", "DejaVu Sans", "Verdana", "Arial", sans-serif;
+    font-size: {{ fs }}pt;
+    line-height: 1.7;
+    letter-spacing: 0.025em;
+    word-spacing: 0.08em;
+    color: #1a1208;
+    background: #faf8f2;
   }
+  .masthead {
+    text-align: center;
+    border-top: 4px solid #6b5c42;
+    border-bottom: 2px solid #c8b89a;
+    padding: 6pt 0 7pt;
+    margin-bottom: 8pt;
+    background: #faf8f2;
+  }
+  .masthead h1 {
+    font-size: {{ (fs * 2.0) | round | int }}pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #2d2416;
+  }
+  .masthead .dateline { font-size: {{ fs - 1 }}pt; color: #6b5c42; margin-top: 3pt; letter-spacing: 0.02em; }
+  .masthead .rule { border: none; border-top: 1px solid #c8b89a; margin: 4pt 0; }
+
+  .section-header {
+    font-size: {{ fs - 1 }}pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #4a3d2d;
+    border: none;
+    border-left: 4pt solid #c8b89a;
+    padding: 3pt 0 3pt 6pt;
+    margin: 10pt 0 5pt;
+    background: #f0ece2;
+    border-radius: 0 3pt 3pt 0;
+  }
+
+  .toc-section-label {
+    display: inline-block;
+    font-size: {{ fs - 2 }}pt;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: #6b5c42;
+    color: #faf8f2;
+    padding: 1.5pt 5pt;
+    border-radius: 3pt;
+  }
+
+  .weather-compact { width: 96pt; flex-shrink: 0; background: #f0ece2; border: 1.5px solid #c8b89a; border-radius: 6pt; padding: 6pt 7pt; font-family: "OpenDyslexic", "DejaVu Sans", "Verdana", sans-serif; }
+  .wc-label { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b5c42; border-bottom: 1px solid #c8b89a; padding-bottom: 2pt; margin-bottom: 5pt; }
+  .wc-temp { font-size: 18pt; font-weight: 700; line-height: 1; margin-bottom: 2pt; color: #2d2416; }
+  .wc-condition { font-size: {{ fs - 1 }}pt; color: #4a3d2d; margin-bottom: 5pt; }
+  .wc-meta { font-size: {{ fs - 2.5 }}pt; color: #6b5c42; line-height: 1.8; }
+  .wc-hourly { margin-top: 5pt; border-top: 1px solid #c8b89a; padding-top: 4pt; }
+  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ fs - 3 }}pt; color: #6b5c42; margin-bottom: 2pt; }
+  .wc-hour-row .h-time { font-weight: 700; color: #2d2416; }
+
+  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ fs - 1 }}pt; }
+  .toc-table thead th { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid #c8b89a; padding: 2pt 2pt 3pt; color: #6b5c42; text-align: left; }
+  .toc-table thead th.th-pg { text-align: right; }
+  .toc-table td { padding: 3.5pt 2pt; vertical-align: top; border-bottom: 1px solid #e8e0d0; line-height: 1.5; }
+  .toc-source { font-size: {{ fs - 2.5 }}pt; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b5c42; white-space: nowrap; padding-right: 4pt; width: 24%; }
+  .toc-title { font-size: {{ fs - 1 }}pt; color: #1a1208; line-height: 1.4; }
+  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ fs - 2 }}pt; color: #6b5c42; padding-left: 3pt; width: 16pt; }
+  a.toc-pageref { text-decoration: none; color: #6b5c42; }
+  a.toc-pageref::after { content: target-counter(attr(href), page); }
+  .toc-section-row td { padding-top: 6pt; padding-bottom: 2pt; border-bottom: none; }
+
+  .task-list { list-style: none; }
+  .task-item { display: flex; align-items: flex-start; gap: 5pt; padding: 3pt 0; border-bottom: 1px solid #e8e0d0; font-size: {{ fs }}pt; }
+  .task-item:last-child { border-bottom: none; }
+  .task-checkbox { width: 9pt; height: 9pt; border: 2px solid #6b5c42; border-radius: 3pt; flex-shrink: 0; margin-top: 2pt; display: inline-block; }
+  .task-item.overdue .task-title { color: #8b2000; }
+  .task-item .task-meta { font-size: {{ fs - 2 }}pt; color: #8b7a5c; }
+  .task-item .task-project { font-style: italic; }
+
+  .email-item { padding: 4pt 0; border-bottom: 1px solid #e8e0d0; font-size: {{ fs - 0.5 }}pt; }
+  .email-item:last-child { border-bottom: none; }
+  .email-item .email-from { font-weight: bold; color: #4a3d2d; }
+  .email-item .email-subject { font-size: {{ fs }}pt; line-height: 1.5; }
+  .email-item .email-snippet { color: #6b5c42; font-size: {{ fs - 1.5 }}pt; margin-top: 2pt; line-height: 1.6; }
+
+  .feed-label { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b5c42; border-bottom: 2px solid #c8b89a; margin-bottom: 4pt; padding-bottom: 2pt; }
+  .article { break-inside: avoid; margin-bottom: 7pt; padding-bottom: 6pt; border-bottom: 1px solid #e8e0d0; }
+  .article:last-child { border-bottom: none; }
+  .article-title { font-size: {{ fs + 0.5 }}pt; font-weight: 700; line-height: 1.4; margin-bottom: 2pt; color: #1a1208; }
+  .article-meta { font-size: {{ fs - 2.5 }}pt; color: #8b7a5c; margin-bottom: 3pt; }
+  .article-body { font-size: {{ fs - 0.5 }}pt; color: #2d2416; line-height: 1.75; letter-spacing: 0.025em; word-spacing: 0.08em; }
+  .article-body.ai-summary { font-style: italic; color: #6b5c42; }
+
+  .footer { border-top: 1px solid #c8b89a; margin-top: 12pt; padding-top: 4pt; font-size: {{ fs - 2.5 }}pt; color: #8b7a5c; text-align: center; }
+  {% endif %}
+
+  /* ── Common layout (all themes) ─────────────────────────────────────────── */
+  .front-page { break-after: page; }
+  .front-grid { display: flex; gap: 10pt; align-items: flex-start; margin-top: 4pt; }
+  .toc-panel  { flex: 1; min-width: 0; }
+  .feed-section { break-inside: avoid; margin-bottom: 6pt; }
+
+  {% if config.columns == 2 %}
+  .articles-grid { column-count: 2; column-gap: 10pt; column-rule: 1px solid #ccc; }
+  {% else %}
+  .articles-grid { column-count: 1; }
+  {% endif %}
 </style>
 </head>
 <body>
@@ -323,9 +335,9 @@
 <div class="front-page">
 
   <div class="masthead">
-    <h1>The Daily Digest</h1>
+    <h1>{{ config.newspaper_name }}</h1>
     <hr class="rule">
-    <div class="dateline">{{ generated_at }} &nbsp;·&nbsp; Generated at {{ generated_time }}</div>
+    <div class="dateline">{{ generated_at }} &nbsp;·&nbsp; {{ generated_time }}</div>
   </div>
 
   <div class="front-grid">
@@ -344,37 +356,29 @@
         <tbody>
 
           {% if tasks %}
-          <tr class="toc-section-row">
-            <td colspan="3"><span class="toc-section-label">Tasks</span></td>
-          </tr>
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Tasks</span></td></tr>
           <tr>
             <td class="toc-source">Today</td>
             <td class="toc-title">
               {{ tasks | length }} task{{ 's' if tasks | length != 1 else '' }}
-              {%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
-              {%- if overdue_count %} &nbsp;·&nbsp; <strong>{{ overdue_count }} overdue</strong>{% endif %}
+              {%- set oc = tasks | selectattr("meta.overdue") | list | length %}
+              {%- if oc %} · <strong>{{ oc }} overdue</strong>{% endif %}
             </td>
             <td class="toc-pg"><a href="#section-tasks" class="toc-pageref"></a></td>
           </tr>
           {% endif %}
 
           {% if emails %}
-          <tr class="toc-section-row">
-            <td colspan="3"><span class="toc-section-label">Email</span></td>
-          </tr>
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Email</span></td></tr>
           <tr>
             <td class="toc-source">Inbox</td>
-            <td class="toc-title">
-              {{ emails | length }} message{{ 's' if emails | length != 1 else '' }}
-            </td>
+            <td class="toc-title">{{ emails | length }} message{{ 's' if emails | length != 1 else '' }}</td>
             <td class="toc-pg"><a href="#section-emails" class="toc-pageref"></a></td>
           </tr>
           {% endif %}
 
           {% if feeds %}
-          <tr class="toc-section-row">
-            <td colspan="3"><span class="toc-section-label">News</span></td>
-          </tr>
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">News</span></td></tr>
           {% set ns = namespace(idx=0) %}
           {% for feed_name, articles in feeds.items() %}
             {% for article in articles %}
@@ -417,17 +421,16 @@
     </div>
     {% endif %}
 
-  </div><!-- /front-grid -->
+  </div>
 </div><!-- /front-page -->
 
 <!-- ════════════════════ CONTENT PAGES ════════════════════════ -->
 
-<!-- TASKS -->
 {% if tasks %}
 <div id="section-tasks" class="section-header">
   Today's Tasks
-  {%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
-  {%- if overdue_count %} &nbsp;({{ overdue_count }} overdue){% endif %}
+  {%- set oc = tasks | selectattr("meta.overdue") | list | length %}
+  {%- if oc %} &nbsp;({{ oc }} overdue){% endif %}
 </div>
 <ul class="task-list">
   {% for task in tasks %}
@@ -447,7 +450,6 @@
 </ul>
 {% endif %}
 
-<!-- EMAIL -->
 {% if emails %}
 <div id="section-emails" class="section-header">
   Email
@@ -463,7 +465,6 @@
 {% endfor %}
 {% endif %}
 
-<!-- NEWS FEEDS -->
 {% if feeds %}
 <div class="section-header">News</div>
 <div class="articles-grid">
@@ -474,13 +475,9 @@
     {% for article in articles %}
     <div class="article" id="art-{{ ns.idx }}">
       <div class="article-title">{{ article.title }}</div>
-      <div class="article-meta">
-        {% if article.published %}{{ article.published }}{% endif %}
-      </div>
+      <div class="article-meta">{% if article.published %}{{ article.published }}{% endif %}</div>
       {% if article.body %}
-      <div class="article-body {% if article.get('ai_summarised') %}ai-summary{% endif %}">
-        {{ article.body }}
-      </div>
+      <div class="article-body {% if article.get('ai_summarised') %}ai-summary{% endif %}">{{ article.body }}</div>
       {% endif %}
     </div>
     {% set ns.idx = ns.idx + 1 %}
@@ -490,9 +487,8 @@
 </div>
 {% endif %}
 
-<!-- FOOTER -->
 <div class="footer">
-  NewspaSync &nbsp;·&nbsp; {{ generated_at }}
+  {{ config.newspaper_name }} &nbsp;·&nbsp; {{ generated_at }}
 </div>
 
 </body>

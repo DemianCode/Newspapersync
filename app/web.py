@@ -243,7 +243,7 @@ async def delete_feed(request: Request):
     return RedirectResponse("/sources?saved", status_code=303)
 
 
-# ── Settings (read-only view of current env config) ───────────────────────────
+# ── Settings ──────────────────────────────────────────────────────────────────
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -281,9 +281,8 @@ async def settings_page(request: Request):
             "AI_MODEL",
             "AI_SUMMARY_MAX_TOKENS",
         ],
-        "PDF": ["PDF_THEME", "PDF_PAPER_SIZE", "PDF_COLUMNS"],
     }
-    config = {
+    env_config = {
         group: {var: os.environ.get(var, "") for var in vars_}
         for group, vars_ in groups.items()
     }
@@ -292,12 +291,60 @@ async def settings_page(request: Request):
         {
             "request": request,
             "active": "settings",
-            "config": config,
+            "config": env_config,
+            "appearance": _load_appearance(),
+            "saved": "saved" in request.query_params,
         },
     )
 
 
+@app.post("/settings/appearance")
+async def save_appearance(request: Request):
+    form = await request.form()
+    data = {
+        "newspaper_name": str(form.get("newspaper_name", "The Daily Digest")).strip() or "The Daily Digest",
+        "theme": str(form.get("theme", "traditional")),
+        "font_size": max(7, min(16, int(form.get("font_size") or 9))),
+        "paper_size": str(form.get("paper_size", "A5")),
+        "columns": max(1, min(2, int(form.get("columns") or 1))),
+    }
+    if data["theme"] not in ("traditional", "retro", "readable"):
+        data["theme"] = "traditional"
+    if data["paper_size"] not in ("A5", "A4"):
+        data["paper_size"] = "A5"
+    _save_appearance(data)
+    return RedirectResponse("/settings?saved", status_code=303)
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+_APPEARANCE_DEFAULTS = {
+    "newspaper_name": "The Daily Digest",
+    "theme": "traditional",
+    "font_size": 9,
+    "paper_size": "A5",
+    "columns": 1,
+}
+
+
+def _load_appearance() -> dict:
+    path = Path("/app/config/appearance.yml")
+    result = dict(_APPEARANCE_DEFAULTS)
+    if path.exists():
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            result.update({k: v for k, v in data.items() if k in result})
+        except Exception:
+            pass
+    return result
+
+
+def _save_appearance(data: dict) -> None:
+    path = Path("/app/config/appearance.yml")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
 def _load_sources_config() -> dict:
