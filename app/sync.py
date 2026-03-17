@@ -79,7 +79,9 @@ def _sync_rmapi(pdf_path: Path) -> bool:
 
 
 def _rmapi_run(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    cmd = ["rmapi"] + args
+    # -ni = non-interactive: fail cleanly if not authenticated instead of prompting.
+    # This prevents the "Code has the wrong length" errors when running headlessly.
+    cmd = ["rmapi", "-ni"] + args
     logger.debug("rmapi: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if check and result.returncode != 0:
@@ -90,9 +92,20 @@ def _rmapi_run(args: list[str], check: bool = True) -> subprocess.CompletedProce
 def _rmapi_available() -> bool:
     try:
         result = subprocess.run(["rmapi", "version"], capture_output=True, timeout=5)
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
     except FileNotFoundError:
         return False
+
+    # Also verify authenticated — auth token lives at $HOME/.local/share/rmapi/auth
+    auth_file = Path("/root/.local/share/rmapi/auth")
+    if not auth_file.exists():
+        logger.error(
+            "rmapi is installed but not authenticated. "
+            "Authenticate once with: docker compose run --rm -it newspapersync rmapi"
+        )
+        return False
+    return True
 
 
 def _ensure_folder(folder: str) -> None:
