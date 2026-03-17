@@ -34,6 +34,14 @@ _state: dict = {
 _scheduler = None
 _run_lock = threading.Lock()
 
+# Sync state (separate from pipeline state so both are visible simultaneously)
+_sync_state: dict = {
+    "last_sync": None,
+    "last_sync_status": None,  # "running" | "success" | "error"
+    "last_sync_error": None,
+}
+_sync_lock = threading.Lock()
+
 
 def set_scheduler(sched) -> None:
     global _scheduler
@@ -65,6 +73,33 @@ def run_pipeline_tracked() -> None:
         _run_lock.release()
 
 
+def sync_pdf_tracked(pdf_path: Path) -> None:
+    """Sync a specific PDF to reMarkable and update shared sync state."""
+    if not _sync_lock.acquire(blocking=False):
+        logger.info("Sync already running — skipping duplicate trigger")
+        return
+    try:
+        from app.sync import sync
+
+        _sync_state.update({
+            "last_sync_status": "running",
+            "last_sync": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "last_sync_error": None,
+        })
+        success = sync(pdf_path)
+        if success:
+            _sync_state["last_sync_status"] = "success"
+        else:
+            _sync_state["last_sync_status"] = "error"
+            _sync_state["last_sync_error"] = "Sync failed — check container logs"
+    except Exception as exc:
+        _sync_state["last_sync_status"] = "error"
+        _sync_state["last_sync_error"] = str(exc)
+        logger.exception("Sync failed from web trigger: %s", exc)
+    finally:
+        _sync_lock.release()
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -90,6 +125,7 @@ async def dashboard(request: Request):
             "pdfs": [p.name for p in pdfs],
             "latest_pdf": pdfs[0].name if pdfs else None,
             "state": _state,
+            "sync_state": _sync_state,
             "next_run": next_run,
         },
     )
@@ -97,12 +133,35 @@ async def dashboard(request: Request):
 
 @app.get("/status")
 async def status():
-    return JSONResponse(_state)
+    return JSONResponse({**_state, **_sync_state})
 
 
 @app.post("/run")
 async def trigger_run():
     t = threading.Thread(target=run_pipeline_tracked, daemon=True)
+    t.start()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/sync")
+async def trigger_sync(request: Request):
+    form = await request.form()
+    filename = str(form.get("filename", "")).strip()
+    if filename:
+        path = Path("/app/output") / filename
+        if (
+            not path.exists()
+            or not filename.startswith("newspaper-")
+            or not filename.endswith(".pdf")
+        ):
+            return HTMLResponse("Not found", status_code=404)
+    else:
+        output_dir = Path("/app/output")
+        pdfs = sorted(output_dir.glob("newspaper-*.pdf"), reverse=True) if output_dir.exists() else []
+        if not pdfs:
+            return RedirectResponse("/", status_code=303)
+        path = pdfs[0]
+    t = threading.Thread(target=sync_pdf_tracked, args=(path,), daemon=True)
     t.start()
     return RedirectResponse("/", status_code=303)
 

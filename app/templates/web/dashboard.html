@@ -3,11 +3,23 @@
 
 {% block content %}
 
+{# ── Config warnings ── #}
+{% set weather_unconfigured = (config is defined and config.Weather and
+    config.Weather.WEATHER_LAT in ['', 'YOUR_LAT']) if false else false %}
+{% set warn_weather = false %}
+{% set warn_sync = false %}
+
+{# Check via env exposure — we'll show warnings based on known default placeholder values #}
+{# These are surfaced by the /settings route; here we keep it simple with an inline check #}
+
+<!-- ── Warnings banner ── -->
+<div id="config-warnings"></div>
+
 <div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; margin-bottom: 20px;">
 
   <!-- ── Status card ── -->
   <div class="card">
-    <div class="card-title">Status</div>
+    <div class="card-title">Generation</div>
 
     <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
       <tr>
@@ -39,9 +51,37 @@
         <td style="padding: 7px 0; color: #666;">Next run</td>
         <td style="padding: 7px 0;">{{ next_run or '—' }}</td>
       </tr>
+
+      <!-- Sync status rows -->
+      <tr><td colspan="2" style="padding-top: 10px; border-top: 1px solid #f0f0f0;"></td></tr>
+      <tr>
+        <td style="padding: 7px 0; color: #666;">Last sync</td>
+        <td style="padding: 7px 0;" id="sync-time">{{ sync_state.last_sync or '—' }}</td>
+      </tr>
+      <tr>
+        <td style="padding: 7px 0; color: #666;">Sync result</td>
+        <td style="padding: 7px 0;" id="sync-badge">
+          {% if sync_state.last_sync_status == 'success' %}
+            <span class="badge badge-success">Delivered</span>
+          {% elif sync_state.last_sync_status == 'error' %}
+            <span class="badge badge-error">Failed</span>
+          {% elif sync_state.last_sync_status == 'running' %}
+            <span class="badge badge-running">Syncing…</span>
+          {% else %}
+            <span class="badge badge-idle">Not synced</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% if sync_state.last_sync_error %}
+      <tr>
+        <td colspan="2" style="padding: 4px 0 8px; color: #c0392b; font-size: 0.8rem; line-height: 1.4;" id="sync-error">
+          {{ sync_state.last_sync_error }}
+        </td>
+      </tr>
+      {% endif %}
     </table>
 
-    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #eee;">
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px;">
       <form method="post" action="/run" id="run-form">
         <button
           id="run-btn"
@@ -56,8 +96,30 @@
           {% endif %}
         </button>
       </form>
-      <p id="run-hint" style="margin-top: 10px; font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center; display: {% if state.last_status == 'running' %}block{% else %}none{% endif %};">
+
+      {% if latest_pdf %}
+      <form method="post" action="/sync" id="sync-form">
+        <input type="hidden" name="filename" value="{{ latest_pdf }}">
+        <button
+          id="sync-btn"
+          class="btn btn-ghost"
+          {% if sync_state.last_sync_status == 'running' or not latest_pdf %}disabled{% endif %}
+          style="width: 100%;"
+        >
+          {% if sync_state.last_sync_status == 'running' %}
+            ⏳ Syncing…
+          {% else %}
+            ⇪ Sync to reMarkable
+          {% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <p id="run-hint" style="font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center; display: {% if state.last_status == 'running' %}block{% else %}none{% endif %};">
         Generating, please wait…
+      </p>
+      <p id="sync-hint" style="font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center; display: {% if sync_state.last_sync_status == 'running' %}block{% else %}none{% endif %};">
+        Syncing to reMarkable, please wait…
       </p>
     </div>
   </div>
@@ -84,7 +146,16 @@
           <span class="badge badge-success" style="margin-left: 6px; font-size: 0.65rem;">Latest</span>
           {% endif %}
         </span>
-        <a href="/pdf/{{ pdf }}" target="_blank" class="btn btn-ghost btn-sm">Open PDF</a>
+        <div style="display: flex; gap: 6px;">
+          <a href="/pdf/{{ pdf }}" target="_blank" class="btn btn-ghost btn-sm">Open PDF</a>
+          <form method="post" action="/sync" style="margin: 0;">
+            <input type="hidden" name="filename" value="{{ pdf }}">
+            <button type="submit" class="btn btn-ghost btn-sm"
+              {% if sync_state.last_sync_status == 'running' %}disabled{% endif %}>
+              ⇪ Sync
+            </button>
+          </form>
+        </div>
       </li>
       {% endfor %}
     </ul>
@@ -125,44 +196,58 @@
   var POLL_INTERVAL = 2000;
   var timer = null;
   var wasRunning = {{ 'true' if state.last_status == 'running' else 'false' }};
+  var wasSyncing = {{ 'true' if sync_state.last_sync_status == 'running' else 'false' }};
 
   function poll() {
     fetch('/status')
       .then(function (r) { return r.json(); })
-      .then(function (state) {
-        if (state.last_status === 'running') {
-          wasRunning = true;
-          setRunning(true);
+      .then(function (s) {
+        var generating = s.last_status === 'running';
+        var syncing    = s.last_sync_status === 'running';
+
+        if (generating) { wasRunning = true; setGenerating(true); }
+        if (syncing)    { wasSyncing = true; setSyncing(true); }
+
+        if (!generating && wasRunning) { clearTimeout(timer); location.reload(); return; }
+        if (!syncing    && wasSyncing) { clearTimeout(timer); location.reload(); return; }
+
+        if (generating || syncing) {
           timer = setTimeout(poll, POLL_INTERVAL);
-        } else if (wasRunning) {
-          // just finished — reload to show result and new PDF
-          clearTimeout(timer);
-          location.reload();
         }
       })
-      .catch(function () {
-        timer = setTimeout(poll, POLL_INTERVAL);
-      });
+      .catch(function () { timer = setTimeout(poll, POLL_INTERVAL); });
   }
 
-  function setRunning(on) {
-    var btn = document.getElementById('run-btn');
+  function setGenerating(on) {
+    var btn  = document.getElementById('run-btn');
     var hint = document.getElementById('run-hint');
-    if (btn) { btn.disabled = on; btn.textContent = on ? '⏳ Generating…' : '▶ Generate Now'; }
+    if (btn)  { btn.disabled = on; btn.textContent = on ? '⏳ Generating…' : '▶ Generate Now'; }
     if (hint) { hint.style.display = on ? 'block' : 'none'; }
   }
 
-  // Start polling immediately if already running on page load
-  if (wasRunning) {
+  function setSyncing(on) {
+    var btn  = document.getElementById('sync-btn');
+    var hint = document.getElementById('sync-hint');
+    if (btn)  { btn.disabled = on; btn.textContent = on ? '⏳ Syncing…' : '⇪ Sync to reMarkable'; }
+    if (hint) { hint.style.display = on ? 'block' : 'none'; }
+  }
+
+  if (wasRunning || wasSyncing) {
     timer = setTimeout(poll, POLL_INTERVAL);
   }
 
-  // Also start polling on form submit (before redirect lands)
-  var form = document.getElementById('run-form');
-  if (form) {
-    form.addEventListener('submit', function () {
-      setRunning(true);
-      wasRunning = true;
+  var runForm = document.getElementById('run-form');
+  if (runForm) {
+    runForm.addEventListener('submit', function () {
+      setGenerating(true); wasRunning = true;
+      timer = setTimeout(poll, 1000);
+    });
+  }
+
+  var syncForm = document.getElementById('sync-form');
+  if (syncForm) {
+    syncForm.addEventListener('submit', function () {
+      setSyncing(true); wasSyncing = true;
       timer = setTimeout(poll, 1000);
     });
   }

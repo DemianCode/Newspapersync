@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def collect() -> dict:
     for article in article_blocks:
         feeds.setdefault(article["source"], []).append(article)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now()
     return {
         "generated_at": now.strftime("%A, %d %B %Y"),
         "generated_time": now.strftime("%H:%M"),
