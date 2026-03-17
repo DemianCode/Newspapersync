@@ -3,6 +3,9 @@ set -e
 
 cd "$(dirname "$0")"
 
+# Ensure volume directories exist before Docker tries to mount them
+mkdir -p rmapi output config
+
 echo "Stopping container..."
 docker compose down
 
