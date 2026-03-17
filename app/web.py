@@ -248,33 +248,16 @@ async def delete_feed(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
+    # Read-only groups — require docker-compose.yml edits to change
     groups = {
-        "Schedule": ["SCHEDULE_TIME", "RUN_ON_START", "TZ"],
+        "Schedule (docker-compose.yml)": ["SCHEDULE_TIME", "RUN_ON_START", "TZ"],
         "reMarkable": [
             "REMARKABLE_SYNC_METHOD",
             "REMARKABLE_FOLDER",
             "REMARKABLE_ARCHIVE_FOLDER",
             "REMARKABLE_ARCHIVE_KEEP_DAYS",
         ],
-        "Weather": [
-            "WEATHER_ENABLED",
-            "WEATHER_LAT",
-            "WEATHER_LON",
-            "WEATHER_UNITS",
-            "WEATHER_LOCATION_NAME",
-        ],
-        "Email inbox": [
-            "EMAIL_ENABLED",
-            "EMAIL_IMAP_HOST",
-            "EMAIL_IMAP_PORT",
-            "EMAIL_MAX_ITEMS",
-        ],
         "TickTick": ["TICKTICK_ENABLED", "TICKTICK_SHOW_OVERDUE"],
-        "RSS": [
-            "RSS_ENABLED",
-            "RSS_MAX_ARTICLES_PER_FEED",
-            "RSS_MAX_ARTICLE_LENGTH",
-        ],
         "AI Summaries": [
             "AI_SUMMARY_ENABLED",
             "AI_API_BASE_URL",
@@ -282,7 +265,36 @@ async def settings_page(request: Request):
             "AI_SUMMARY_MAX_TOKENS",
         ],
     }
-    env_config = {
+    from app import config_loader
+    # Effective value = settings.yml override OR env var (same priority as runtime)
+    def eff(key: str, default: str = "") -> str:
+        return config_loader.get(key, os.environ.get(key, default))
+
+    editable = {
+        "Weather": {
+            "WEATHER_ENABLED":       eff("WEATHER_ENABLED", "true"),
+            "WEATHER_LAT":           eff("WEATHER_LAT", ""),
+            "WEATHER_LON":           eff("WEATHER_LON", ""),
+            "WEATHER_UNITS":         eff("WEATHER_UNITS", "celsius"),
+            "WEATHER_LOCATION_NAME": eff("WEATHER_LOCATION_NAME", ""),
+        },
+        "Schedule": {
+            "SCHEDULE_TIME": eff("SCHEDULE_TIME", "06:00"),
+        },
+        "RSS": {
+            "RSS_ENABLED":                eff("RSS_ENABLED", "true"),
+            "RSS_MAX_ARTICLES_PER_FEED":  eff("RSS_MAX_ARTICLES_PER_FEED", "5"),
+            "RSS_MAX_ARTICLE_LENGTH":     eff("RSS_MAX_ARTICLE_LENGTH", "1500"),
+        },
+        "Email": {
+            "EMAIL_ENABLED":    eff("EMAIL_ENABLED", "false"),
+            "EMAIL_IMAP_HOST":  eff("EMAIL_IMAP_HOST", ""),
+            "EMAIL_IMAP_PORT":  eff("EMAIL_IMAP_PORT", "993"),
+            "EMAIL_MAX_ITEMS":  eff("EMAIL_MAX_ITEMS", "10"),
+        },
+    }
+
+    readonly_config = {
         group: {var: os.environ.get(var, "") for var in vars_}
         for group, vars_ in groups.items()
     }
@@ -291,11 +303,50 @@ async def settings_page(request: Request):
         {
             "request": request,
             "active": "settings",
-            "config": env_config,
+            "editable": editable,
+            "config": readonly_config,
             "appearance": _load_appearance(),
             "saved": "saved" in request.query_params,
         },
     )
+
+
+@app.post("/settings/update")
+async def save_settings(request: Request):
+    """Save any non-secret settings to config/settings.yml."""
+    from app import config_loader
+    form = await request.form()
+    updates: dict = {}
+
+    # Weather
+    for key in ("WEATHER_ENABLED", "WEATHER_LAT", "WEATHER_LON",
+                "WEATHER_UNITS", "WEATHER_LOCATION_NAME"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # RSS
+    for key in ("RSS_ENABLED", "RSS_MAX_ARTICLES_PER_FEED", "RSS_MAX_ARTICLE_LENGTH"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Email (non-secret)
+    for key in ("EMAIL_ENABLED", "EMAIL_IMAP_HOST", "EMAIL_IMAP_PORT", "EMAIL_MAX_ITEMS"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Schedule (needs restart to affect the scheduler, but takes effect for display)
+    for key in ("SCHEDULE_TIME",):
+        if key in form:
+            val = str(form[key]).strip()
+            # basic HH:MM validation
+            parts = val.split(":")
+            if len(parts) == 2 and all(p.isdigit() for p in parts):
+                updates[key] = val
+
+    if updates:
+        config_loader.save(updates)
+
+    return RedirectResponse("/settings?saved", status_code=303)
 
 
 @app.post("/settings/appearance")

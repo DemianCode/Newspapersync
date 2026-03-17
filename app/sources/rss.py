@@ -8,23 +8,22 @@ is too short or truncated.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 
 import feedparser
 import trafilatura
 import yaml
 
+from app import config_loader as cfg
+
 logger = logging.getLogger(__name__)
 
 _CONFIG_PATH = "/app/config/sources.yml"
-_MAX_PER_FEED = int(os.environ.get("RSS_MAX_ARTICLES_PER_FEED", "5"))
-_MAX_BODY_LEN = int(os.environ.get("RSS_MAX_ARTICLE_LENGTH", "1500"))
 _MIN_SUMMARY_LEN = 200  # chars — below this we try full-page extraction
 
 
 def fetch() -> list[dict]:
-    if os.environ.get("RSS_ENABLED", "true").lower() != "true":
+    if cfg.get("RSS_ENABLED", "true").lower() != "true":
         return []
 
     feeds = _load_feeds()
@@ -55,7 +54,7 @@ def _load_feeds() -> list[dict]:
 def _fetch_feed(feed: dict) -> list[dict]:
     url: str = feed["url"]
     label: str = feed.get("name", url)
-    max_items: int = feed.get("max_items", _MAX_PER_FEED)
+    max_items: int = feed.get("max_items", int(cfg.get("RSS_MAX_ARTICLES_PER_FEED", "5")))
 
     parsed = feedparser.parse(url)
     if parsed.bozo and not parsed.entries:
@@ -76,8 +75,9 @@ def _fetch_feed(feed: dict) -> list[dict]:
         if len(body) < _MIN_SUMMARY_LEN and link:
             body = _extract_full(link) or body
 
-        if _MAX_BODY_LEN > 0:
-            body = body[:_MAX_BODY_LEN].rsplit(" ", 1)[0] + "…" if len(body) > _MAX_BODY_LEN else body
+        max_body = int(cfg.get("RSS_MAX_ARTICLE_LENGTH", "1500"))
+        if max_body > 0:
+            body = body[:max_body].rsplit(" ", 1)[0] + "…" if len(body) > max_body else body
 
         blocks.append({
             "type": "article",
