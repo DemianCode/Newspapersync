@@ -25,6 +25,16 @@ _WMO_CODES = {
     95: "Thunderstorm", 96: "Thunderstorm w/ hail", 99: "Thunderstorm w/ heavy hail",
 }
 
+_WMO_EMOJI = {
+    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+    45: "🌫️", 48: "🌫️",
+    51: "🌦️", 53: "🌦️", 55: "🌧️",
+    61: "🌧️", 63: "🌧️", 65: "🌧️",
+    71: "❄️", 73: "❄️", 75: "❄️",
+    80: "🌦️", 81: "🌦️", 82: "⛈️",
+    95: "⛈️", 96: "⛈️", 99: "⛈️",
+}
+
 
 def fetch() -> list[dict]:
     if cfg.get("WEATHER_ENABLED", "true").lower() != "true":
@@ -70,7 +80,9 @@ def fetch() -> list[dict]:
     feels = current.get("apparent_temperature", "?")
     wind = current.get("windspeed_10m", "?")
     humidity = current.get("relativehumidity_2m", "?")
-    condition = _WMO_CODES.get(current.get("weathercode", -1), "Unknown")
+    weather_code = current.get("weathercode", -1)
+    condition = _WMO_CODES.get(weather_code, "Unknown")
+    emoji = _WMO_EMOJI.get(weather_code, "🌡️")
 
     # Build hourly snapshot: every 3 hours
     hourly_times = hourly.get("time", [])
@@ -80,11 +92,13 @@ def fetch() -> list[dict]:
 
     hourly_rows = []
     for i in range(0, min(len(hourly_times), 24), 3):
+        code = hourly_codes[i] if i < len(hourly_codes) else -1
         hourly_rows.append({
             "time": hourly_times[i][11:16] if len(hourly_times[i]) > 11 else hourly_times[i],
             "temp": f"{hourly_temps[i]}{temp_symbol}" if i < len(hourly_temps) else "",
             "precip": f"{hourly_precip[i]}%" if i < len(hourly_precip) else "",
-            "condition": _WMO_CODES.get(hourly_codes[i], "") if i < len(hourly_codes) else "",
+            "condition": _WMO_CODES.get(code, ""),
+            "emoji": _WMO_EMOJI.get(code, ""),
         })
 
     return [{
@@ -98,6 +112,7 @@ def fetch() -> list[dict]:
             "feels_like": feels,
             "temp_symbol": temp_symbol,
             "condition": condition,
+            "emoji": emoji,
             "wind": wind,
             "humidity": humidity,
             "hourly": hourly_rows,
