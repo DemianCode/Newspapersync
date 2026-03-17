@@ -9,7 +9,7 @@ services:
     volumes:
       - ./config:/app/config              # sources.yml, token files
       - ./output:/app/output              # generated PDFs
-      - ./rmapi:/root/rmapi-config          # rmapi auth token directory (persists across restarts)
+      - ./rmapi:/root/.local/share/rmapi     # rmapi auth token directory (persists across restarts)
     environment:
       # ── Web UI ─────────────────────────────────────────────────────────────
       WEB_ENABLED: "true"                 # set to "false" to disable the web UI
