@@ -16,7 +16,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl \
     ca-certificates
 
-# Install rmapi binary (pinned version)
+# Install rmapi binary (pinned version) and wrap it so config always lives at
+# /root/rmapi-config/.rmapi (the bind-mount path) instead of ~/.rmapi.
+# ddvk/rmapi v0.0.32 does not honour RMAPI_CONFIG, so we use the -c flag via wrapper.
 RUN --mount=type=cache,target=/tmp/rmapi-cache \
     RMAPI_VERSION="0.0.32" && \
     RMAPI_URL="https://github.com/ddvk/rmapi/releases/download/v${RMAPI_VERSION}/rmapi-linux-amd64.tar.gz" && \
@@ -24,7 +26,10 @@ RUN --mount=type=cache,target=/tmp/rmapi-cache \
         curl -fsSL "$RMAPI_URL" -o /tmp/rmapi-cache/rmapi.tar.gz; \
     fi && \
     tar -xz -C /usr/local/bin -f /tmp/rmapi-cache/rmapi.tar.gz && \
-    chmod +x /usr/local/bin/rmapi
+    mv /usr/local/bin/rmapi /usr/local/bin/rmapi-bin && \
+    printf '#!/bin/sh\nexec /usr/local/bin/rmapi-bin -c /root/rmapi-config/.rmapi "$@"\n' \
+        > /usr/local/bin/rmapi && \
+    chmod +x /usr/local/bin/rmapi-bin /usr/local/bin/rmapi
 
 WORKDIR /app
 
