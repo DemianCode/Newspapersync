@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,11 @@ async def dashboard(request: Request):
             "next_run": next_run,
         },
     )
+
+
+@app.get("/status")
+async def status():
+    return JSONResponse(_state)
 
 
 @app.post("/run")
