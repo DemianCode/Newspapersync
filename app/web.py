@@ -175,7 +175,11 @@ async def serve_pdf(filename: str):
         or not filename.endswith(".pdf")
     ):
         return HTMLResponse("Not found", status_code=404)
-    return FileResponse(str(path), media_type="application/pdf", filename=filename)
+    return FileResponse(
+        str(path),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )
 
 
 # ── RSS Sources ───────────────────────────────────────────────────────────────

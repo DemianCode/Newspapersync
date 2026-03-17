@@ -400,6 +400,7 @@
     {% if weather %}
     <div class="weather-compact">
       <div class="wc-label">Weather</div>
+      <div style="font-size: 26pt; line-height: 1; margin-bottom: 2pt;">{{ weather.meta.emoji }}</div>
       <div class="wc-temp">{{ weather.meta.temp }}{{ weather.meta.temp_symbol }}</div>
       <div class="wc-condition">{{ weather.meta.condition }}</div>
       <div class="wc-meta">
@@ -412,6 +413,7 @@
         {% for hour in weather.meta.hourly[:5] %}
         <div class="wc-hour-row">
           <span class="h-time">{{ hour.time }}</span>
+          <span>{{ hour.emoji }}</span>
           <span>{{ hour.temp }}</span>
           <span>{{ hour.precip }}</span>
         </div>
