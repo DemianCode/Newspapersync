@@ -42,8 +42,9 @@
     </table>
 
     <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #eee;">
-      <form method="post" action="/run">
+      <form method="post" action="/run" id="run-form">
         <button
+          id="run-btn"
           class="btn btn-primary"
           {% if state.last_status == 'running' %}disabled{% endif %}
           style="width: 100%;"
@@ -55,11 +56,9 @@
           {% endif %}
         </button>
       </form>
-      {% if state.last_status == 'running' %}
-      <p style="margin-top: 10px; font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center;">
-        Refresh the page to see updated status
+      <p id="run-hint" style="margin-top: 10px; font-size: 0.78rem; color: #888; font-family: -apple-system, sans-serif; text-align: center; display: {% if state.last_status == 'running' %}block{% else %}none{% endif %};">
+        Generating, please wait…
       </p>
-      {% endif %}
     </div>
   </div>
 
@@ -118,4 +117,55 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var POLL_INTERVAL = 2000;
+  var timer = null;
+  var wasRunning = {{ 'true' if state.last_status == 'running' else 'false' }};
+
+  function poll() {
+    fetch('/status')
+      .then(function (r) { return r.json(); })
+      .then(function (state) {
+        if (state.last_status === 'running') {
+          wasRunning = true;
+          setRunning(true);
+          timer = setTimeout(poll, POLL_INTERVAL);
+        } else if (wasRunning) {
+          // just finished — reload to show result and new PDF
+          clearTimeout(timer);
+          location.reload();
+        }
+      })
+      .catch(function () {
+        timer = setTimeout(poll, POLL_INTERVAL);
+      });
+  }
+
+  function setRunning(on) {
+    var btn = document.getElementById('run-btn');
+    var hint = document.getElementById('run-hint');
+    if (btn) { btn.disabled = on; btn.textContent = on ? '⏳ Generating…' : '▶ Generate Now'; }
+    if (hint) { hint.style.display = on ? 'block' : 'none'; }
+  }
+
+  // Start polling immediately if already running on page load
+  if (wasRunning) {
+    timer = setTimeout(poll, POLL_INTERVAL);
+  }
+
+  // Also start polling on form submit (before redirect lands)
+  var form = document.getElementById('run-form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      setRunning(true);
+      wasRunning = true;
+      timer = setTimeout(poll, 1000);
+    });
+  }
+})();
+</script>
 {% endblock %}
