@@ -34,6 +34,14 @@ _state: dict = {
 _scheduler = None
 _run_lock = threading.Lock()
 
+# Sync state (separate from pipeline state so both are visible simultaneously)
+_sync_state: dict = {
+    "last_sync": None,
+    "last_sync_status": None,  # "running" | "success" | "error"
+    "last_sync_error": None,
+}
+_sync_lock = threading.Lock()
+
 
 def set_scheduler(sched) -> None:
     global _scheduler
@@ -65,6 +73,33 @@ def run_pipeline_tracked() -> None:
         _run_lock.release()
 
 
+def sync_pdf_tracked(pdf_path: Path) -> None:
+    """Sync a specific PDF to reMarkable and update shared sync state."""
+    if not _sync_lock.acquire(blocking=False):
+        logger.info("Sync already running — skipping duplicate trigger")
+        return
+    try:
+        from app.sync import sync
+
+        _sync_state.update({
+            "last_sync_status": "running",
+            "last_sync": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "last_sync_error": None,
+        })
+        success = sync(pdf_path)
+        if success:
+            _sync_state["last_sync_status"] = "success"
+        else:
+            _sync_state["last_sync_status"] = "error"
+            _sync_state["last_sync_error"] = "Sync failed — check container logs"
+    except Exception as exc:
+        _sync_state["last_sync_status"] = "error"
+        _sync_state["last_sync_error"] = str(exc)
+        logger.exception("Sync failed from web trigger: %s", exc)
+    finally:
+        _sync_lock.release()
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -90,6 +125,7 @@ async def dashboard(request: Request):
             "pdfs": [p.name for p in pdfs],
             "latest_pdf": pdfs[0].name if pdfs else None,
             "state": _state,
+            "sync_state": _sync_state,
             "next_run": next_run,
         },
     )
@@ -97,12 +133,35 @@ async def dashboard(request: Request):
 
 @app.get("/status")
 async def status():
-    return JSONResponse(_state)
+    return JSONResponse({**_state, **_sync_state})
 
 
 @app.post("/run")
 async def trigger_run():
     t = threading.Thread(target=run_pipeline_tracked, daemon=True)
+    t.start()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/sync")
+async def trigger_sync(request: Request):
+    form = await request.form()
+    filename = str(form.get("filename", "")).strip()
+    if filename:
+        path = Path("/app/output") / filename
+        if (
+            not path.exists()
+            or not filename.startswith("newspaper-")
+            or not filename.endswith(".pdf")
+        ):
+            return HTMLResponse("Not found", status_code=404)
+    else:
+        output_dir = Path("/app/output")
+        pdfs = sorted(output_dir.glob("newspaper-*.pdf"), reverse=True) if output_dir.exists() else []
+        if not pdfs:
+            return RedirectResponse("/", status_code=303)
+        path = pdfs[0]
+    t = threading.Thread(target=sync_pdf_tracked, args=(path,), daemon=True)
     t.start()
     return RedirectResponse("/", status_code=303)
 
@@ -184,7 +243,7 @@ async def delete_feed(request: Request):
     return RedirectResponse("/sources?saved", status_code=303)
 
 
-# ── Settings (read-only view of current env config) ───────────────────────────
+# ── Settings ──────────────────────────────────────────────────────────────────
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -222,9 +281,8 @@ async def settings_page(request: Request):
             "AI_MODEL",
             "AI_SUMMARY_MAX_TOKENS",
         ],
-        "PDF": ["PDF_THEME", "PDF_PAPER_SIZE", "PDF_COLUMNS"],
     }
-    config = {
+    env_config = {
         group: {var: os.environ.get(var, "") for var in vars_}
         for group, vars_ in groups.items()
     }
@@ -233,12 +291,60 @@ async def settings_page(request: Request):
         {
             "request": request,
             "active": "settings",
-            "config": config,
+            "config": env_config,
+            "appearance": _load_appearance(),
+            "saved": "saved" in request.query_params,
         },
     )
 
 
+@app.post("/settings/appearance")
+async def save_appearance(request: Request):
+    form = await request.form()
+    data = {
+        "newspaper_name": str(form.get("newspaper_name", "The Daily Digest")).strip() or "The Daily Digest",
+        "theme": str(form.get("theme", "traditional")),
+        "font_size": max(7, min(16, int(form.get("font_size") or 9))),
+        "paper_size": str(form.get("paper_size", "A5")),
+        "columns": max(1, min(2, int(form.get("columns") or 1))),
+    }
+    if data["theme"] not in ("traditional", "retro", "readable"):
+        data["theme"] = "traditional"
+    if data["paper_size"] not in ("A5", "A4"):
+        data["paper_size"] = "A5"
+    _save_appearance(data)
+    return RedirectResponse("/settings?saved", status_code=303)
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+_APPEARANCE_DEFAULTS = {
+    "newspaper_name": "The Daily Digest",
+    "theme": "traditional",
+    "font_size": 9,
+    "paper_size": "A5",
+    "columns": 1,
+}
+
+
+def _load_appearance() -> dict:
+    path = Path("/app/config/appearance.yml")
+    result = dict(_APPEARANCE_DEFAULTS)
+    if path.exists():
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            result.update({k: v for k, v in data.items() if k in result})
+        except Exception:
+            pass
+    return result
+
+
+def _save_appearance(data: dict) -> None:
+    path = Path("/app/config/appearance.yml")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
 def _load_sources_config() -> dict:

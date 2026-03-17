@@ -8,9 +8,40 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from pathlib import Path
+
+import yaml
 
 logger = logging.getLogger(__name__)
+
+_APPEARANCE_DEFAULTS = {
+    "newspaper_name": "The Daily Digest",
+    "theme": "traditional",
+    "font_size": 9,
+    "paper_size": "A5",
+    "columns": 1,
+}
+
+
+def _load_appearance() -> dict:
+    """Load appearance settings from config/appearance.yml, falling back to env vars."""
+    base = {
+        "newspaper_name": os.environ.get("NEWSPAPER_NAME", _APPEARANCE_DEFAULTS["newspaper_name"]),
+        "theme": os.environ.get("PDF_THEME", _APPEARANCE_DEFAULTS["theme"]),
+        "font_size": int(os.environ.get("PDF_FONT_SIZE", _APPEARANCE_DEFAULTS["font_size"])),
+        "paper_size": os.environ.get("PDF_PAPER_SIZE", _APPEARANCE_DEFAULTS["paper_size"]),
+        "columns": int(os.environ.get("PDF_COLUMNS", _APPEARANCE_DEFAULTS["columns"])),
+    }
+    path = Path("/app/config/appearance.yml")
+    if path.exists():
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f) or {}
+            base.update({k: v for k, v in data.items() if k in base})
+        except Exception as exc:
+            logger.warning("Could not read appearance.yml: %s", exc)
+    return base
 
 
 def collect() -> dict:
@@ -40,7 +71,7 @@ def collect() -> dict:
     for article in article_blocks:
         feeds.setdefault(article["source"], []).append(article)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now()
     return {
         "generated_at": now.strftime("%A, %d %B %Y"),
         "generated_time": now.strftime("%H:%M"),
@@ -49,11 +80,7 @@ def collect() -> dict:
         "emails": email_blocks,
         "feeds": feeds,          # {feed_name: [article, ...]}
         "all_blocks": blocks,
-        "config": {
-            "columns": int(os.environ.get("PDF_COLUMNS", "1")),
-            "theme": os.environ.get("PDF_THEME", "light"),
-            "paper_size": os.environ.get("PDF_PAPER_SIZE", "A5"),
-        },
+        "config": _load_appearance(),
     }
 
 

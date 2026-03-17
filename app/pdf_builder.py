@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -28,7 +28,7 @@ def build(context: dict) -> Path:
     """Render newspaper HTML and convert to PDF. Returns the output path."""
     _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    date_str = datetime.now().strftime("%Y-%m-%d")
     output_path = _OUTPUT_DIR / f"newspaper-{date_str}.pdf"
 
     env = Environment(

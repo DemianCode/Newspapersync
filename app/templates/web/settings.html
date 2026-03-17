@@ -3,26 +3,180 @@
 
 {% block content %}
 
+{% if saved %}
+<div class="flash flash-success" style="margin-bottom: 20px;">
+  Appearance settings saved. They will apply on the next generation run.
+</div>
+{% endif %}
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Appearance
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/appearance">
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-title">Appearance <span style="font-weight: 400; font-size: 0.72rem; letter-spacing: 0; text-transform: none; color: #888;">— editable here, takes effect next generation</span></div>
+
+  <!-- Newspaper name -->
+  <div style="margin-bottom: 18px;">
+    <label class="field-label" for="newspaper_name">Newspaper Name</label>
+    <input type="text" id="newspaper_name" name="newspaper_name"
+      value="{{ appearance.newspaper_name }}"
+      style="width: 100%; max-width: 400px;"
+      placeholder="The Daily Digest">
+  </div>
+
+  <!-- Theme -->
+  <div style="margin-bottom: 20px;">
+    <div class="field-label" style="margin-bottom: 10px;">Theme</div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+
+      <!-- Traditional -->
+      <label style="cursor: pointer; flex: 1; min-width: 170px;">
+        <input type="radio" name="theme" value="traditional"
+          {% if appearance.theme == 'traditional' %}checked{% endif %}
+          style="display: none;" class="theme-radio">
+        <div class="theme-card {% if appearance.theme == 'traditional' %}theme-card-active{% endif %}" data-theme="traditional">
+          <div class="theme-preview" style="
+            font-family: 'Liberation Serif', Georgia, serif;
+            background: #fff;
+            border: 2px solid #111;
+            padding: 8px 10px;
+            border-radius: 2px;
+            margin-bottom: 6px;
+          ">
+            <div style="font-size: 11px; font-weight: 900; text-align: center; border-bottom: 1px solid #111; padding-bottom: 4px; margin-bottom: 4px; letter-spacing: 0.05em;">THE DAILY DIGEST</div>
+            <div style="font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #888; margin-bottom: 3px; color: #333;">World News</div>
+            <div style="font-size: 7.5px; font-weight: bold; line-height: 1.2; margin-bottom: 2px;">Headline story goes here</div>
+            <div style="font-size: 6.5px; color: #444; line-height: 1.3;">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do eiusmod...</div>
+          </div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center;">Traditional</div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">Classic serif newspaper</div>
+        </div>
+      </label>
+
+      <!-- Retro -->
+      <label style="cursor: pointer; flex: 1; min-width: 170px;">
+        <input type="radio" name="theme" value="retro"
+          {% if appearance.theme == 'retro' %}checked{% endif %}
+          style="display: none;" class="theme-radio">
+        <div class="theme-card {% if appearance.theme == 'retro' %}theme-card-active{% endif %}" data-theme="retro">
+          <div class="theme-preview" style="
+            font-family: 'Liberation Mono', 'Courier New', monospace;
+            background: #fdf6e3;
+            border: 2px solid #5a3e1b;
+            padding: 8px 10px;
+            border-radius: 0;
+          ">
+            <div style="font-size: 9px; font-weight: 900; text-align: center; letter-spacing: 0.12em; color: #2a1800; border-bottom: 2px solid #5a3e1b; padding-bottom: 3px; margin-bottom: 4px; text-transform: uppercase;">*** TECH NEWS ***</div>
+            <div style="font-size: 6px; font-weight: 700; color: #8b4513; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px;">[ WORLD NEWS ]</div>
+            <div style="font-size: 7px; font-weight: bold; color: #1a0800; line-height: 1.2; margin-bottom: 2px;">HEADLINE GOES HERE</div>
+            <div style="font-size: 6px; color: #3d2b1f; line-height: 1.4;">Lorem ipsum dolor sit amet consec adipiscing elit eiusmod tempor...</div>
+          </div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 6px;">Retro</div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">80s tech newsletter</div>
+        </div>
+      </label>
+
+      <!-- Readable -->
+      <label style="cursor: pointer; flex: 1; min-width: 170px;">
+        <input type="radio" name="theme" value="readable"
+          {% if appearance.theme == 'readable' %}checked{% endif %}
+          style="display: none;" class="theme-radio">
+        <div class="theme-card {% if appearance.theme == 'readable' %}theme-card-active{% endif %}" data-theme="readable">
+          <div class="theme-preview" style="
+            font-family: 'OpenDyslexic', 'DejaVu Sans', Verdana, Arial, sans-serif;
+            background: #faf8f2;
+            border: 2px solid #c8b89a;
+            padding: 8px 10px;
+            border-radius: 4px;
+          ">
+            <div style="font-size: 10px; font-weight: 700; text-align: center; color: #2d2416; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 2px solid #c8b89a; letter-spacing: 0.02em;">The Daily Digest</div>
+            <div style="font-size: 6.5px; font-weight: 700; color: #6b5c42; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; background: #ede8dc; padding: 1px 4px; display: inline-block; border-radius: 2px;">World News</div>
+            <div style="font-size: 7.5px; font-weight: bold; color: #1a1208; line-height: 1.4; margin-bottom: 3px;">Headline goes here</div>
+            <div style="font-size: 6.5px; color: #4a3d2d; line-height: 1.6; letter-spacing: 0.02em;">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed eiusmod...</div>
+          </div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.8rem; font-weight: 600; text-align: center; margin-top: 6px;">Readable</div>
+          <div style="font-family: -apple-system, sans-serif; font-size: 0.72rem; color: #777; text-align: center;">Dyslexia-friendly sans-serif</div>
+        </div>
+      </label>
+
+    </div>
+  </div>
+
+  <!-- Font size, paper size, columns -->
+  <div class="form-row" style="gap: 24px; flex-wrap: wrap; margin-bottom: 18px;">
+    <div>
+      <label class="field-label" for="font_size">Base Font Size (pt)</label>
+      <input type="number" id="font_size" name="font_size"
+        value="{{ appearance.font_size }}" min="7" max="16" style="width: 70px;">
+      <span style="font-family: -apple-system, sans-serif; font-size: 0.78rem; color: #888; margin-left: 6px;">7 – 16 pt</span>
+    </div>
+    <div>
+      <label class="field-label" for="paper_size">Paper Size</label>
+      <select id="paper_size" name="paper_size" style="padding: 7px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85rem; background: white;">
+        <option value="A5" {% if appearance.paper_size == 'A5' %}selected{% endif %}>A5 (reMarkable native)</option>
+        <option value="A4" {% if appearance.paper_size == 'A4' %}selected{% endif %}>A4</option>
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="columns">News Columns</label>
+      <select id="columns" name="columns" style="padding: 7px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85rem; background: white;">
+        <option value="1" {% if appearance.columns == 1 %}selected{% endif %}>1 column</option>
+        <option value="2" {% if appearance.columns == 2 %}selected{% endif %}>2 columns</option>
+      </select>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Appearance</button>
+</div>
+</form>
+
+<style>
+  .theme-card {
+    border: 2px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .theme-card:hover { border-color: #aaa; }
+  .theme-card-active { border-color: #1a1a1a !important; box-shadow: 0 0 0 1px #1a1a1a; }
+  .theme-preview { min-height: 72px; }
+</style>
+<script>
+  document.querySelectorAll('.theme-radio').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.querySelectorAll('.theme-card').forEach(function(c) {
+        c.classList.remove('theme-card-active');
+      });
+      this.closest('label').querySelector('.theme-card').classList.add('theme-card-active');
+    });
+  });
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     READ-ONLY: docker-compose.yml environment variables
+     ══════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="background: #fffbf0; border-color: #f0e8c8; margin-bottom: 24px;">
   <p style="font-family: -apple-system, sans-serif; font-size: 0.875rem; line-height: 1.6; color: #6b5800;">
-    <strong>How to change settings:</strong> Edit the <span class="mono">environment:</span> section in
-    <span class="mono">docker-compose.yml</span>, then restart the container
-    with <span class="mono">docker compose up -d --force-recreate</span>.<br>
-    Secrets (passwords, API keys) live in <span class="mono">.env</span> — values there are intentionally hidden below.
+    <strong>To change the settings below:</strong> Edit <span class="mono">docker-compose.yml</span>, then run
+    <span class="mono">docker compose up -d --force-recreate</span>.<br>
+    Secrets (passwords, API keys) live in <span class="mono">.env</span> — values there are intentionally hidden.
   </p>
 </div>
 
 {% for group, vars in config.items() %}
 <div class="card">
   <div class="card-title">{{ group }}</div>
-
   <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
     {% for var, value in vars.items() %}
     <tr style="border-bottom: 1px solid #f5f5f5;">
       <td style="padding: 8px 0; width: 300px; color: #555;" class="mono">{{ var }}</td>
       <td style="padding: 8px 0;">
-        {% if value %}
+        {% if value and value not in ('YOUR_LAT', 'YOUR_LON', 'My City') %}
           <span style="color: #1a1a1a;">{{ value }}</span>
+        {% elif value in ('YOUR_LAT', 'YOUR_LON', 'My City') %}
+          <span style="color: #c0392b; font-weight: 600;">{{ value }}</span>
+          <span style="color: #c0392b; font-size: 0.78rem; margin-left: 6px;">⚠ not configured</span>
         {% else %}
           <span style="color: #bbb; font-style: italic;">not set</span>
         {% endif %}

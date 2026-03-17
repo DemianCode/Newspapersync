@@ -29,6 +29,15 @@ rss:
       url: "https://www.sciencedaily.com/rss/top/science.xml"
       max_items: 3
 
+    # ── Comics ───────────────────────────────────────────────────────────────
+    - name: "xkcd"
+      url: "https://xkcd.com/rss.xml"
+      max_items: 2
+
+    - name: "Dinosaur Comics"
+      url: "https://www.qwantz.com/rss.xml"
+      max_items: 2
+
     # ── Add your own feeds below ─────────────────────────────────────────────
     # - name: "My Blog"
     #   url: "https://example.com/feed.xml"
