@@ -151,13 +151,37 @@
         value="{{ editable.Schedule.SCHEDULE_TIME }}"
         placeholder="06:00" style="width:90px;" pattern="\d{2}:\d{2}">
     </div>
+    <div>
+      <label class="field-label" for="TZ">Timezone</label>
+      <input type="text" id="TZ" name="TZ"
+        value="{{ editable.Schedule.TZ }}"
+        placeholder="UTC" style="width:200px;"
+        list="tz-suggestions">
+      <datalist id="tz-suggestions">
+        <option value="UTC">
+        <option value="America/New_York">
+        <option value="America/Chicago">
+        <option value="America/Denver">
+        <option value="America/Los_Angeles">
+        <option value="Europe/London">
+        <option value="Europe/Paris">
+        <option value="Europe/Berlin">
+        <option value="Europe/Amsterdam">
+        <option value="Asia/Tokyo">
+        <option value="Asia/Shanghai">
+        <option value="Asia/Singapore">
+        <option value="Asia/Kolkata">
+        <option value="Australia/Sydney">
+        <option value="Australia/Melbourne">
+        <option value="Pacific/Auckland">
+      </datalist>
+    </div>
   </div>
 
   <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
     <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
-      <strong>Timezone</strong> is set to <strong>{{ config.Schedule.TZ or 'UTC' }}</strong> in
-      <span class="mono">docker-compose.yml</span>. Schedule changes take effect after a container restart
-      (<span class="mono">docker compose up -d --force-recreate</span>).
+      Schedule and timezone changes take effect after a container restart:
+      <span class="mono">docker compose up -d --force-recreate</span>
     </p>
   </div>
 

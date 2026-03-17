@@ -250,7 +250,6 @@ async def delete_feed(request: Request):
 async def settings_page(request: Request):
     # Read-only groups — require docker-compose.yml edits to change
     groups = {
-        "Schedule (docker-compose.yml)": ["SCHEDULE_TIME", "RUN_ON_START", "TZ"],
         "reMarkable": [
             "REMARKABLE_SYNC_METHOD",
             "REMARKABLE_FOLDER",
@@ -280,6 +279,7 @@ async def settings_page(request: Request):
         },
         "Schedule": {
             "SCHEDULE_TIME": eff("SCHEDULE_TIME", "06:00"),
+            "TZ":            eff("TZ", "UTC"),
         },
         "RSS": {
             "RSS_ENABLED":                eff("RSS_ENABLED", "true"),
@@ -334,14 +334,16 @@ async def save_settings(request: Request):
         if key in form:
             updates[key] = str(form[key]).strip()
 
-    # Schedule (needs restart to affect the scheduler, but takes effect for display)
-    for key in ("SCHEDULE_TIME",):
-        if key in form:
-            val = str(form[key]).strip()
-            # basic HH:MM validation
-            parts = val.split(":")
-            if len(parts) == 2 and all(p.isdigit() for p in parts):
-                updates[key] = val
+    # Schedule — needs restart to affect the running APScheduler
+    if "SCHEDULE_TIME" in form:
+        val = str(form["SCHEDULE_TIME"]).strip()
+        parts = val.split(":")
+        if len(parts) == 2 and all(p.isdigit() for p in parts):
+            updates["SCHEDULE_TIME"] = val
+    if "TZ" in form:
+        tz_val = str(form["TZ"]).strip()
+        if tz_val:
+            updates["TZ"] = tz_val
 
     if updates:
         config_loader.save(updates)
