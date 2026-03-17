@@ -68,8 +68,9 @@ def _fetch_feed(feed: dict) -> list[dict]:
         published = _parse_date(entry)
 
         # Try summary from feed first
-        body = entry.get("summary", "") or entry.get("content", [{}])[0].get("value", "")
-        body = _strip_html(body)
+        raw_html = entry.get("summary", "") or entry.get("content", [{}])[0].get("value", "")
+        image_url = _extract_image_url(raw_html)
+        body = _strip_html(raw_html)
 
         # Fetch full article if summary is too short
         if len(body) < _MIN_SUMMARY_LEN and link:
@@ -86,6 +87,7 @@ def _fetch_feed(feed: dict) -> list[dict]:
             "body": body,
             "url": link,
             "published": published,
+            "image_url": image_url,
         })
 
     return blocks
@@ -110,6 +112,13 @@ def _parse_date(entry) -> str:
         except Exception:
             pass
     return ""
+
+
+def _extract_image_url(html: str) -> str:
+    """Return the src of the first <img> tag in html, or empty string."""
+    import re
+    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE)
+    return m.group(1) if m else ""
 
 
 def _strip_html(text: str) -> str:

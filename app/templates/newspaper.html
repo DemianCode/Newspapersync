@@ -317,9 +317,12 @@
   {% endif %}
 
   /* ── Common layout (all themes) ─────────────────────────────────────────── */
-  .front-page { break-after: page; }
-  .front-grid { display: flex; gap: 10pt; align-items: flex-start; margin-top: 4pt; }
-  .toc-panel  { flex: 1; min-width: 0; }
+  /* No forced page break — content flows from the masthead */
+  .front-page { margin-bottom: 8pt; }
+  /* Table layout for masthead sidebar — much more reliable than flex in WeasyPrint */
+  .front-grid { display: table; width: 100%; margin-top: 4pt; }
+  .toc-panel  { display: table-cell; vertical-align: top; }
+  .weather-compact { display: table-cell !important; vertical-align: top; padding-left: 10pt; }
   .feed-section { break-inside: avoid; margin-bottom: 6pt; }
 
   {% if config.columns == 2 %}
@@ -478,6 +481,12 @@
     <div class="article" id="art-{{ ns.idx }}">
       <div class="article-title">{{ article.title }}</div>
       <div class="article-meta">{% if article.published %}{{ article.published }}{% endif %}</div>
+      {% if article.image_url %}
+      <div style="text-align: center; margin: 3pt 0;">
+        <img src="{{ article.image_url }}" alt="{{ article.title }}"
+             style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+      </div>
+      {% endif %}
       {% if article.body %}
       <div class="article-body {% if article.get('ai_summarised') %}ai-summary{% endif %}">{{ article.body }}</div>
       {% endif %}
