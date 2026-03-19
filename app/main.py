@@ -62,6 +62,8 @@ def run_pipeline() -> bool:
     logger.info("Syncing to reMarkable…")
     success = sync.sync(pdf_path)
 
+    sync.send_pdf_copy(pdf_path)
+
     if success:
         logger.info("━━━ Done — newspaper delivered ━━━")
     else:

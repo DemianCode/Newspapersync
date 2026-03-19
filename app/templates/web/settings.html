@@ -276,6 +276,45 @@
 </form>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: PDF Email Delivery
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">PDF Email Delivery</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="PDF_EMAIL_ENABLED" value="false">
+      <input type="checkbox" name="PDF_EMAIL_ENABLED" value="true"
+        {% if editable.PdfEmail.PDF_EMAIL_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <label class="field-label" for="PDF_EMAIL_RECIPIENT">Recipient(s)</label>
+    <input type="text" id="PDF_EMAIL_RECIPIENT" name="PDF_EMAIL_RECIPIENT"
+      value="{{ editable.PdfEmail.PDF_EMAIL_RECIPIENT }}"
+      placeholder="you@example.com, partner@example.com"
+      style="width:100%;max-width:340px;">
+    <div style="font-family:-apple-system,sans-serif;font-size:0.75rem;color:#888;margin-top:4px;">
+      Comma-separated for multiple recipients.
+    </div>
+  </div>
+
+  <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
+      <strong>SMTP credentials</strong> (host, port, username, password) are secrets — set them in your
+      <span class="mono">.env</span> file. See <span class="mono">.env.example</span> for the required keys.
+    </p>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save PDF Email</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      EDITABLE: Wikipedia
      ══════════════════════════════════════════════════════════════════════ -->
 <form method="post" action="/settings/update">

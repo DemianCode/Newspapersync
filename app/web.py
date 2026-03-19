@@ -302,6 +302,10 @@ async def settings_page(request: Request):
             "EMAIL_IMAP_PORT":  eff("EMAIL_IMAP_PORT", "993"),
             "EMAIL_MAX_ITEMS":  eff("EMAIL_MAX_ITEMS", "10"),
         },
+        "PdfEmail": {
+            "PDF_EMAIL_ENABLED":   eff("PDF_EMAIL_ENABLED", "false"),
+            "PDF_EMAIL_RECIPIENT": eff("PDF_EMAIL_RECIPIENT", ""),
+        },
         "Wikipedia": {
             "WIKIPEDIA_ENABLED": eff("WIKIPEDIA_ENABLED", "false"),
         },
@@ -354,6 +358,11 @@ async def save_settings(request: Request):
 
     # Email (non-secret)
     for key in ("EMAIL_ENABLED", "EMAIL_IMAP_HOST", "EMAIL_IMAP_PORT", "EMAIL_MAX_ITEMS"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # PDF email delivery
+    for key in ("PDF_EMAIL_ENABLED", "PDF_EMAIL_RECIPIENT"):
         if key in form:
             updates[key] = str(form[key]).strip()
 
