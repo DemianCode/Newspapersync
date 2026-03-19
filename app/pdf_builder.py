@@ -24,12 +24,15 @@ _PAPER_SIZES = {
 }
 
 
-def build(context: dict) -> Path:
+def build(context: dict, edition_id: str | None = None) -> Path:
     """Render newspaper HTML and convert to PDF. Returns the output path."""
     _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    output_path = _OUTPUT_DIR / f"newspaper-{date_str}.pdf"
+    if edition_id:
+        output_path = _OUTPUT_DIR / f"newspaper-{edition_id}-{date_str}.pdf"
+    else:
+        output_path = _OUTPUT_DIR / f"newspaper-{date_str}.pdf"
 
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),

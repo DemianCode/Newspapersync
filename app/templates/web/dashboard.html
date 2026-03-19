@@ -15,6 +15,124 @@
 <!-- ── Warnings banner ── -->
 <div id="config-warnings"></div>
 
+{% if editions_mode %}
+
+{# ── Editions mode: one status card per edition ── #}
+<div style="margin-bottom: 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+    <h2 class="page-heading" style="margin: 0; border: none; padding: 0;">Editions</h2>
+    <a href="/editions" class="btn btn-ghost btn-sm">Manage Editions</a>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+    {% for edition in editions %}
+    {% set es = edition_states[edition.id] %}
+    {% set next = edition_next_runs.get(edition.id, '—') %}
+    <div class="card" style="margin: 0;" id="edition-card-{{ edition.id }}">
+      <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>{{ edition.name }}</span>
+        <span style="font-weight: 400; font-size: 0.7rem; color: #888;">{{ edition.schedule }}</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.85rem;">
+        <tr>
+          <td style="padding: 5px 0; color: #666; width: 80px;">Last run</td>
+          <td style="padding: 5px 0;">{{ es.last_run or '—' }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #666;">Status</td>
+          <td style="padding: 5px 0;" class="edition-status" data-edition="{{ edition.id }}">
+            {% if es.last_status == 'success' %}
+              <span class="badge badge-success">Success</span>
+            {% elif es.last_status == 'error' %}
+              <span class="badge badge-error">Error</span>
+            {% elif es.last_status == 'running' %}
+              <span class="badge badge-running">Running…</span>
+            {% else %}
+              <span class="badge badge-idle">Not run yet</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% if es.last_error %}
+        <tr>
+          <td colspan="2" style="padding: 3px 0 6px; color: #c0392b; font-size: 0.78rem; line-height: 1.4;">
+            {{ es.last_error }}
+          </td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td style="padding: 5px 0; color: #666;">Delivery</td>
+          <td style="padding: 5px 0;" class="edition-sync" data-edition="{{ edition.id }}">
+            {% if es.last_sync_status == 'success' %}
+              <span class="badge badge-success">Delivered</span>
+            {% elif es.last_sync_status == 'error' %}
+              <span class="badge badge-error">Failed</span>
+            {% elif es.last_sync_status == 'running' %}
+              <span class="badge badge-running">Delivering…</span>
+            {% else %}
+              <span class="badge badge-idle">Not delivered</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #666;">Next run</td>
+          <td style="padding: 5px 0; font-size: 0.83rem;">{{ next }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; color: #666;">Sends to</td>
+          <td style="padding: 5px 0; font-size: 0.78rem; color: #555;">
+            {% set targets = [] %}
+            {% if edition.delivery.remarkable %}{% set _ = targets.append('reMarkable') %}{% endif %}
+            {% if edition.delivery.email %}{% set _ = targets.append('Email') %}{% endif %}
+            {{ targets | join(', ') or '—' }}
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee;">
+        <form method="post" action="/editions/{{ edition.id }}/run">
+          <button
+            type="submit"
+            class="btn btn-primary btn-sm edition-run-btn"
+            data-edition="{{ edition.id }}"
+            {% if es.last_status == 'running' %}disabled{% endif %}
+            style="width: 100%;"
+          >
+            {% if es.last_status == 'running' %}⏳ Running…{% else %}▶ Run Now{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card">
+      <p class="text-muted">No editions configured yet. <a href="/editions">Create your first edition</a>.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Recent issues (editions mode) ── -->
+<div class="card">
+  <div class="card-title">Recent Issues</div>
+  {% if pdfs %}
+  <ul style="list-style: none;">
+    {% for pdf in pdfs %}
+    <li style="display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
+      <span>
+        {{ pdf | replace('newspaper-', '') | replace('.pdf', '') }}
+        {% if loop.first %}<span class="badge badge-success" style="margin-left: 6px; font-size: 0.65rem;">Latest</span>{% endif %}
+      </span>
+      <a href="/pdf/{{ pdf }}" target="_blank" class="btn btn-ghost btn-sm">Open PDF</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-muted" style="padding: 10px 0;">No PDFs yet. Run an edition to generate the first issue.</p>
+  {% endif %}
+</div>
+
+{% else %}
+
+{# ── Legacy mode: single status card ── #}
 <div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; margin-bottom: 20px;">
 
   <!-- ── Status card ── -->
@@ -168,6 +286,8 @@
 
 </div>
 
+{% endif %}
+
 <!-- ── PDF preview ── -->
 {% if latest_pdf %}
 <div class="card" style="padding: 0; overflow: hidden;">
@@ -195,6 +315,54 @@
 (function () {
   var POLL_INTERVAL = 2000;
   var timer = null;
+  var editionsMode = {{ 'true' if editions_mode else 'false' }};
+
+  {% if editions_mode %}
+  // Track which editions were running when the page loaded
+  var wasRunning = {};
+  {% for edition in editions %}
+  {% set es = edition_states[edition.id] %}
+  wasRunning['{{ edition.id }}'] = {{ 'true' if es.last_status == 'running' else 'false' }};
+  {% endfor %}
+
+  function anyRunning() {
+    return Object.values(wasRunning).some(Boolean);
+  }
+
+  function pollEditions() {
+    fetch('/status')
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        if (!s.editions_mode) return;
+        var stillRunning = false;
+        Object.keys(s.editions).forEach(function (id) {
+          var es = s.editions[id];
+          var running = es.last_status === 'running';
+          if (running) { wasRunning[id] = true; stillRunning = true; }
+          if (!running && wasRunning[id]) {
+            clearTimeout(timer); location.reload(); return;
+          }
+        });
+        if (stillRunning) timer = setTimeout(pollEditions, POLL_INTERVAL);
+      })
+      .catch(function () { timer = setTimeout(pollEditions, POLL_INTERVAL); });
+  }
+
+  if (anyRunning()) timer = setTimeout(pollEditions, POLL_INTERVAL);
+
+  // Trigger polling when a run button is clicked
+  document.querySelectorAll('.edition-run-btn').forEach(function (btn) {
+    btn.closest('form').addEventListener('submit', function () {
+      var id = btn.getAttribute('data-edition');
+      wasRunning[id] = true;
+      btn.disabled = true;
+      btn.textContent = '⏳ Running…';
+      timer = setTimeout(pollEditions, 1000);
+    });
+  });
+
+  {% else %}
+  // Legacy single-edition polling
   var wasRunning = {{ 'true' if state.last_status == 'running' else 'false' }};
   var wasSyncing = {{ 'true' if sync_state.last_sync_status == 'running' else 'false' }};
 
@@ -211,9 +379,7 @@
         if (!generating && wasRunning) { clearTimeout(timer); location.reload(); return; }
         if (!syncing    && wasSyncing) { clearTimeout(timer); location.reload(); return; }
 
-        if (generating || syncing) {
-          timer = setTimeout(poll, POLL_INTERVAL);
-        }
+        if (generating || syncing) timer = setTimeout(poll, POLL_INTERVAL);
       })
       .catch(function () { timer = setTimeout(poll, POLL_INTERVAL); });
   }
@@ -232,9 +398,7 @@
     if (hint) { hint.style.display = on ? 'block' : 'none'; }
   }
 
-  if (wasRunning || wasSyncing) {
-    timer = setTimeout(poll, POLL_INTERVAL);
-  }
+  if (wasRunning || wasSyncing) timer = setTimeout(poll, POLL_INTERVAL);
 
   var runForm = document.getElementById('run-form');
   if (runForm) {
@@ -251,6 +415,7 @@
       timer = setTimeout(poll, 1000);
     });
   }
+  {% endif %}
 })();
 </script>
 {% endblock %}
