@@ -97,12 +97,22 @@ def _rmapi_available() -> bool:
     except FileNotFoundError:
         return False
 
-    # Also verify authenticated — auth token lives at $HOME/.local/share/rmapi/auth
-    auth_file = Path("/root/.local/share/rmapi/auth")
-    if not auth_file.exists():
+    # Verify authenticated by doing a live non-interactive test.
+    # Checking for a specific token filename is fragile (the name varies by rmapi version);
+    # running `rmapi -ni ls /` is the only reliable way to confirm auth state.
+    auth_dir = Path("/root/.local/share/rmapi")
+    token_files = list(auth_dir.glob("*")) if auth_dir.exists() else []
+    logger.debug("rmapi config dir contents: %s", [f.name for f in token_files])
+
+    result = subprocess.run(
+        ["rmapi", "-ni", "ls", "/"],
+        capture_output=True, text=True, timeout=15,
+    )
+    if result.returncode != 0:
         logger.error(
-            "rmapi is installed but not authenticated. "
-            "Authenticate once with: docker compose run --rm -it newspapersync rmapi"
+            "rmapi is installed but not authenticated (rmapi -ni ls / returned %d: %s). "
+            "Authenticate once with: docker compose run --rm -it newspapersync rmapi",
+            result.returncode, result.stderr.strip(),
         )
         return False
     return True

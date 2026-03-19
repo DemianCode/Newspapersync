@@ -23,9 +23,14 @@ services:
       RUN_ON_START: "false"               # also run immediately on container start
 
       # ── reMarkable sync ────────────────────────────────────────────────────
-      # Auth rmapi before first run — see README for instructions
+      # Auth rmapi before first run — run: ./auth-remarkable.sh
       REMARKABLE_SYNC_METHOD: "rmapi"
       RMAPI_FORCE_SCHEMA_VERSION: "4"     # force reMarkable new sync protocol (v4)
+
+      # Pin XDG dirs so rmapi's token always lands in the mounted volume,
+      # regardless of whether rmapi uses XDG_DATA_HOME or XDG_CONFIG_HOME.
+      XDG_DATA_HOME: /root/.local/share
+      XDG_CONFIG_HOME: /root/.local/share
       REMARKABLE_FOLDER: "Newspaper"
       REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
       REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
