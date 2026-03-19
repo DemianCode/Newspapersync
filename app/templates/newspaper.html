@@ -319,6 +319,66 @@
   /* ── Common layout (all themes) ─────────────────────────────────────────── */
   /* No forced page break — content flows from the masthead */
   .front-page { margin-bottom: 8pt; }
+
+  /* Learning lessons */
+  .lesson { break-inside: avoid; margin-bottom: 6pt; padding-bottom: 5pt; border-bottom: 1px dotted #ccc; }
+  .lesson:last-child { border-bottom: none; }
+  .lesson-meta { font-size: 7pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 2pt; }
+  .lesson-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.3; margin-bottom: 3pt; }
+  .lesson-body { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; white-space: pre-wrap; }
+
+  /* Shell outputs */
+  .shell-block { break-inside: avoid; margin-bottom: 6pt; padding-bottom: 5pt; border-bottom: 1px dotted #ccc; }
+  .shell-block:last-child { border-bottom: none; }
+  .shell-name { font-size: 7pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 3pt; }
+  .shell-output { font-family: "Liberation Mono", "Courier New", monospace; font-size: {{ [config.font_size - 2, 6] | max }}pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: break-word; background: #f7f7f7; padding: 4pt 5pt; border: 1px solid #e0e0e0; border-radius: 2pt; }
+
+  /* Wikipedia */
+  .wikipedia-block { break-inside: avoid; }
+  .wikipedia-thumb { display: block; max-width: 120pt; max-height: 90pt; margin: 0 auto 6pt; object-fit: cover; border: 1px solid #ddd; }
+  .wikipedia-extract { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
+
+  /* Wikiquote */
+  .wikiquote-block { break-inside: avoid; }
+  .wikiquote-quote { font-size: {{ config.font_size + 1 }}pt; font-style: italic; line-height: 1.65; margin-bottom: 4pt; }
+  .wikiquote-attr { font-size: {{ config.font_size - 1.5 }}pt; color: #555; text-align: right; }
+
+  /* Word of the Day */
+  .wotd-block { break-inside: avoid; }
+  .wotd-word { font-size: {{ config.font_size + 3 }}pt; font-weight: 700; margin-bottom: 1pt; }
+  .wotd-label { font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; margin-bottom: 4pt; }
+  .wotd-definition { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
+
+  /* Source error notice */
+  .source-notice { break-inside: avoid; border: 1px solid #ccc; background: #f9f9f9; border-radius: 2pt; padding: 5pt 7pt; }
+  .source-notice-label { font-size: {{ config.font_size - 2 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 2pt; }
+  .source-notice-body { font-size: {{ config.font_size - 1 }}pt; color: #555; font-style: italic; }
+
+  /* Sudoku grid */
+  .sudoku-wrap { break-inside: avoid; }
+  .sudoku-grid { border-collapse: collapse; margin: 4pt auto; }
+  .sudoku-grid td {
+    width: 16pt; height: 16pt;
+    text-align: center; vertical-align: middle;
+    font-family: "Liberation Sans", "Arial", sans-serif;
+    font-size: {{ [config.font_size - 1, 7] | max }}pt;
+    font-weight: 600;
+    border: 0.5pt solid #999;
+  }
+  .sudoku-grid td.given { color: #111; }
+  .sudoku-grid td.empty { color: #fff; }
+  /* Bold borders between 3x3 boxes */
+  .sudoku-grid td.box-right  { border-right:  2pt solid #111; }
+  .sudoku-grid td.box-bottom { border-bottom: 2pt solid #111; }
+  .sudoku-grid tr:first-child td { border-top:    2pt solid #111; }
+  .sudoku-grid tr:last-child  td { border-bottom: 2pt solid #111; }
+  .sudoku-grid td:first-child    { border-left:   2pt solid #111; }
+  .sudoku-grid td:last-child     { border-right:  2pt solid #111; }
+
+  /* Layout: prevent orphan section headers */
+  .section-header { break-after: avoid; }
+  p { orphans: 2; widows: 2; }
+
   /* Table layout for masthead sidebar — much more reliable than flex in WeasyPrint */
   .front-grid { display: table; width: 100%; margin-top: 4pt; }
   .toc-panel  { display: table-cell; vertical-align: top; }
@@ -377,6 +437,64 @@
             <td class="toc-source">Inbox</td>
             <td class="toc-title">{{ emails | length }} message{{ 's' if emails | length != 1 else '' }}</td>
             <td class="toc-pg"><a href="#section-emails" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if lessons %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Learning</span></td></tr>
+          {% for lesson in lessons %}
+          <tr>
+            <td class="toc-source">{{ lesson.source }}</td>
+            <td class="toc-title">{{ lesson.title }}</td>
+            <td class="toc-pg"><a href="#section-learning" class="toc-pageref"></a></td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+
+          {% if shell_outputs %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Status</span></td></tr>
+          {% for s in shell_outputs %}
+          <tr>
+            <td class="toc-source">Shell</td>
+            <td class="toc-title">{{ s.title }}</td>
+            <td class="toc-pg"><a href="#section-shell" class="toc-pageref"></a></td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+
+          {% if wikipedia %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikipedia</span></td></tr>
+          <tr>
+            <td class="toc-source">Featured</td>
+            <td class="toc-title">{% if wikipedia.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikipedia.title }}{% endif %}</td>
+            <td class="toc-pg"><a href="#section-wikipedia" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if wikiquote %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikiquote</span></td></tr>
+          <tr>
+            <td class="toc-source">Daily</td>
+            <td class="toc-title">{% if wikiquote.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikiquote.meta.attribution or wikiquote.title }}{% endif %}</td>
+            <td class="toc-pg"><a href="#section-wikiquote" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if word_of_the_day %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Word</span></td></tr>
+          <tr>
+            <td class="toc-source">M-W</td>
+            <td class="toc-title">{% if word_of_the_day.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ word_of_the_day.title }}{% endif %}</td>
+            <td class="toc-pg"><a href="#section-wotd" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if sudoku %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Puzzle</span></td></tr>
+          <tr>
+            <td class="toc-source">Sudoku</td>
+            <td class="toc-title">{{ sudoku.meta.difficulty | capitalize }}</td>
+            <td class="toc-pg"><a href="#section-sudoku" class="toc-pageref"></a></td>
           </tr>
           {% endif %}
 
@@ -468,6 +586,103 @@
   {% if email.published %}<div class="email-snippet">{{ email.published }}</div>{% endif %}
 </div>
 {% endfor %}
+{% endif %}
+
+{% if lessons %}
+<div id="section-learning" class="section-header">Learning</div>
+{% for lesson in lessons %}
+<div class="lesson">
+  <div class="lesson-meta">{{ lesson.source }} &nbsp;·&nbsp; {{ lesson.published }}</div>
+  <div class="lesson-title">{{ lesson.title }}</div>
+  {% if lesson.body %}<div class="lesson-body">{{ lesson.body }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if shell_outputs %}
+<div id="section-shell" class="section-header">System Status</div>
+{% for s in shell_outputs %}
+<div class="shell-block">
+  <div class="shell-name">{{ s.title }}</div>
+  <pre class="shell-output">{{ s.body }}</pre>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if wikipedia %}
+<div id="section-wikipedia" class="section-header">Wikipedia — Article of the Day</div>
+{% if wikipedia.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ wikipedia.title }}</div>
+  <div class="source-notice-body">{{ wikipedia.body }}</div>
+</div>
+{% else %}
+<div class="wikipedia-block">
+  <div class="article-title">{{ wikipedia.title }}</div>
+  <div class="article-meta">{{ wikipedia.published }}</div>
+  {% if wikipedia.meta.thumbnail %}
+  <div style="text-align:center; margin: 4pt 0;">
+    <img class="wikipedia-thumb" src="{{ wikipedia.meta.thumbnail }}" alt="{{ wikipedia.title }}">
+  </div>
+  {% endif %}
+  <div class="wikipedia-extract">{{ wikipedia.body }}</div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if wikiquote %}
+<div id="section-wikiquote" class="section-header">Wikiquote — Quote of the Day</div>
+{% if wikiquote.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ wikiquote.title }}</div>
+  <div class="source-notice-body">{{ wikiquote.body }}</div>
+</div>
+{% else %}
+<div class="wikiquote-block">
+  <div class="wikiquote-quote">"{{ wikiquote.body }}"</div>
+  {% if wikiquote.meta.attribution %}
+  <div class="wikiquote-attr">{{ wikiquote.meta.attribution }}</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if word_of_the_day %}
+<div id="section-wotd" class="section-header">Word of the Day</div>
+{% if word_of_the_day.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ word_of_the_day.title }}</div>
+  <div class="source-notice-body">{{ word_of_the_day.body }}</div>
+</div>
+{% else %}
+<div class="wotd-block">
+  <div class="wotd-word">{{ word_of_the_day.title }}</div>
+  <div class="wotd-label">{{ word_of_the_day.source }} · {{ word_of_the_day.published }}</div>
+  {% if word_of_the_day.body %}
+  <div class="wotd-definition">{{ word_of_the_day.body }}</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if sudoku %}
+<div id="section-sudoku" class="section-header">Sudoku — {{ sudoku.meta.difficulty | capitalize }}</div>
+<div class="sudoku-wrap">
+  <table class="sudoku-grid">
+    {% for r in range(9) %}
+    <tr>
+      {% for c in range(9) %}
+      {% set val = sudoku.meta.puzzle[r][c] %}
+      <td class="
+        {%- if val != 0 %}given{% else %}empty{% endif %}
+        {%- if c in (2, 5) %} box-right{% endif %}
+        {%- if r in (2, 5) %} box-bottom{% endif %}
+      ">{{ val if val != 0 else '' }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</div>
 {% endif %}
 
 {% if feeds %}

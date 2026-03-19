@@ -35,6 +35,12 @@ services:
       REMARKABLE_ARCHIVE_FOLDER: "Newspaper/Archive"  # blank = delete instead of archive
       REMARKABLE_ARCHIVE_KEEP_DAYS: "30"              # 0 = keep forever
 
+      # ── PDF email copy ─────────────────────────────────────────────────────
+      # Send the generated PDF to any email inbox after each run.
+      # Uses the same SMTP credentials in .env as the reMarkable email method.
+      PDF_EMAIL_ENABLED: "false"
+      PDF_EMAIL_RECIPIENT: ""             # comma-separated for multiple recipients
+
       # ── Weather ────────────────────────────────────────────────────────────
       WEATHER_ENABLED: "true"
       WEATHER_LAT: "YOUR_LAT"

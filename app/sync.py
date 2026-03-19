@@ -75,6 +75,13 @@ def _sync_rmapi(pdf_path: Path) -> bool:
         if _KEEP_DAYS > 0:
             _prune_archive()
 
+    # Skip upload if this PDF is already in the folder (idempotent re-sync).
+    # rmapi errors on duplicate puts; checking first makes manual re-sync safe.
+    existing = _list_folder(_REMARKABLE_FOLDER)
+    if pdf_path.stem in existing:
+        logger.info("'%s' already on reMarkable — skipping upload", pdf_path.stem)
+        return True
+
     return _rmapi_upload(pdf_path)
 
 
@@ -180,6 +187,66 @@ def _rmapi_upload(pdf_path: Path) -> bool:
 
 
 # ── Email delivery ─────────────────────────────────────────────────────────────
+
+def send_pdf_copy(pdf_path: Path) -> None:
+    """If PDF_EMAIL_ENABLED, email the PDF to PDF_EMAIL_RECIPIENT(s).
+
+    Completely independent of reMarkable sync — runs after the main sync
+    regardless of whether it succeeded or failed.
+
+    Configure in docker-compose.yml:
+      PDF_EMAIL_ENABLED: "true"
+      PDF_EMAIL_RECIPIENT: "you@example.com"   # comma-separated for multiple
+
+    Shares SMTP credentials with the reMarkable email delivery method (.env):
+      SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
+    """
+    if os.environ.get("PDF_EMAIL_ENABLED", "false").lower() != "true":
+        return
+
+    recipients_raw = os.environ.get("PDF_EMAIL_RECIPIENT", "")
+    recipients = [r.strip() for r in recipients_raw.split(",") if r.strip()]
+    if not recipients:
+        logger.error("PDF_EMAIL_ENABLED but PDF_EMAIL_RECIPIENT is not set")
+        return
+
+    smtp_host = os.environ.get("SMTP_HOST", "")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ.get("SMTP_USERNAME", "")
+    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+
+    missing = [k for k, v in {
+        "SMTP_HOST": smtp_host,
+        "SMTP_USERNAME": smtp_user,
+        "SMTP_PASSWORD": smtp_pass,
+    }.items() if not v]
+    if missing:
+        logger.error("PDF email copy: missing .env values: %s", ", ".join(missing))
+        return
+
+    subject = f"Your Daily Newspaper — {datetime.now(tz=timezone.utc).strftime('%d %B %Y')}"
+
+    msg = MIMEMultipart()
+    msg["From"] = smtp_user
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = subject
+    msg.attach(MIMEText("Your daily newspaper is attached.", "plain"))
+
+    with open(pdf_path, "rb") as f:
+        attachment = MIMEApplication(f.read(), _subtype="pdf")
+        attachment.add_header("Content-Disposition", "attachment", filename=pdf_path.name)
+        msg.attach(attachment)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, recipients, msg.as_string())
+        logger.info("PDF copy emailed to: %s", ", ".join(recipients))
+    except Exception as exc:
+        logger.error("PDF email copy failed: %s", exc)
+
 
 def _sync_email(pdf_path: Path) -> bool:
     """Send PDF as attachment to the reMarkable device email address."""

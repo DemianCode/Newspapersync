@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Shell Snippets — NewspaSync{% endblock %}
+
+{% block content %}
+<div class="page-heading">Shell Snippets</div>
+
+{% if saved %}<div class="flash flash-success">Saved.</div>{% endif %}
+
+<p class="text-muted" style="margin-bottom:20px;">
+  Shell commands run inside the Docker container at newspaper build time.
+  Use the <strong>Test</strong> button to preview output before it appears in your PDF.
+</p>
+
+<!-- ── Existing snippets ── -->
+{% if snippets %}
+{% for s in snippets %}
+<div class="card" style="border-left:4px solid {% if s.active %}#28a745{% else %}#aaa{% endif %};">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+
+    <div style="flex:1; min-width:200px;">
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-weight:700; font-size:0.95rem; margin-bottom:6px;">
+        {{ s.name }}
+        {% if s.active %}<span class="badge badge-success" style="margin-left:8px;">Active</span>
+        {% else %}<span class="badge badge-idle" style="margin-left:8px;">Paused</span>{% endif %}
+      </div>
+      <code class="mono" style="display:block; background:#f4f1eb; padding:6px 10px; border-radius:3px; font-size:0.82rem; word-break:break-all; margin-bottom:8px;">{{ s.command }}</code>
+      <div class="text-muted">Timeout: {{ s.timeout }}s</div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex; flex-direction:column; gap:6px; min-width:140px;">
+
+      <form method="post" action="/shell/update" style="display:flex; flex-direction:column; gap:4px;">
+        <input type="hidden" name="id" value="{{ s.id }}">
+        <input type="text" name="name" value="{{ s.name }}" style="width:100%;" placeholder="Name">
+        <textarea name="command" rows="2"
+                  style="width:100%; padding:6px 8px; border:1px solid #ccc; border-radius:3px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:0.78rem; resize:vertical;">{{ s.command }}</textarea>
+        <div style="display:flex; gap:4px; align-items:center;">
+          <label class="field-label" style="margin:0; white-space:nowrap;">Timeout</label>
+          <input type="number" name="timeout" value="{{ s.timeout }}" min="1" max="60" style="width:50px;">
+          <span class="text-muted" style="font-size:0.75rem;">s</span>
+        </div>
+        <input type="hidden" name="active" value="{{ 'true' if s.active else 'false' }}">
+        <div style="display:flex; gap:4px;">
+          <button type="submit" class="btn btn-ghost btn-sm" style="flex:1;">Save</button>
+          <button type="submit" class="btn btn-ghost btn-sm" style="flex:1; background:{% if s.active %}#fff3cd;color:#856404{% else %}#d4edda;color:#155724{% endif %};"
+                  onclick="this.form.querySelector('[name=active]').value='{{ 'false' if s.active else 'true' }}'">
+            {{ 'Pause' if s.active else 'Resume' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- Test button -->
+      <button class="btn btn-ghost btn-sm" style="width:100%;"
+              onclick="testSnippet('{{ s.id }}', {{ s.timeout }})">
+        Test
+      </button>
+      <pre id="test-output-{{ s.id }}"
+           style="display:none; margin:0; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:0.75rem; background:#1a1a1a; color:#e0e0e0; padding:8px 10px; border-radius:3px; white-space:pre-wrap; word-break:break-all; max-height:200px; overflow-y:auto;"></pre>
+
+      <form method="post" action="/shell/delete"
+            onsubmit="return confirm('Delete snippet {{ s.name }}?')">
+        <input type="hidden" name="id" value="{{ s.id }}">
+        <button type="submit" class="btn btn-danger btn-sm" style="width:100%;">Delete</button>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><p class="text-muted">No shell snippets yet. Add one below.</p></div>
+{% endif %}
+
+<!-- ── Add snippet ── -->
+<div class="card">
+  <div class="card-title">Add Snippet</div>
+
+  <form method="post" action="/shell/add" id="add-form">
+    <div style="display:grid; grid-template-columns:1fr 80px; gap:12px; margin-bottom:12px; align-items:start;">
+      <div>
+        <label class="field-label">Name</label>
+        <input type="text" name="name" placeholder="e.g. Docker Status" style="width:100%;" required>
+      </div>
+      <div>
+        <label class="field-label">Timeout (s)</label>
+        <input type="number" name="timeout" value="10" min="1" max="60" style="width:100%;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label class="field-label">Command</label>
+      <textarea name="command" id="new-command" rows="3" required
+                style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:3px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:0.85rem; resize:vertical;"
+                placeholder='docker ps --format "table {{.Names}}\t{{.Status}}"'></textarea>
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button type="submit" class="btn btn-primary">Add Snippet</button>
+      <button type="button" class="btn btn-ghost" onclick="testNewSnippet()">Test Before Adding</button>
+    </div>
+  </form>
+
+  <pre id="test-output-new"
+       style="display:none; margin-top:12px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:0.78rem; background:#1a1a1a; color:#e0e0e0; padding:10px 12px; border-radius:3px; white-space:pre-wrap; word-break:break-all; max-height:300px; overflow-y:auto;"></pre>
+
+  <details style="margin-top:18px;">
+    <summary style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+      Tips &amp; examples
+    </summary>
+    <div style="margin-top:10px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:0.82rem; color:#555;">
+      <p style="margin-bottom:8px;">Commands run inside the Docker container as root. Pipes, redirects, and subshells all work.</p>
+      <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+        <thead><tr style="border-bottom:1px solid #ddd;">
+          <th style="text-align:left; padding:4px 8px; color:#333;">Example</th>
+          <th style="text-align:left; padding:4px 8px; color:#333;">What it shows</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 8px;"><code class="mono">uptime</code></td><td style="padding:4px 8px;">System load</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 8px;"><code class="mono">df -h /</code></td><td style="padding:4px 8px;">Disk usage</td></tr>
+          <tr style="border-bottom:1px solid #eee;"><td style="padding:4px 8px;"><code class="mono">curl -s wttr.in/Sydney?format=3</code></td><td style="padding:4px 8px;">Weather one-liner</td></tr>
+          <tr><td style="padding:4px 8px;"><code class="mono">date +"%A %d %B — %H:%M"</code></td><td style="padding:4px 8px;">Formatted timestamp</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px; color:#888;">Available binaries: bash, curl, python3, df, du, ps, ls, date, uptime, env. Add more to the Dockerfile as needed.</p>
+    </div>
+  </details>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function runTest(command, timeout, outputEl) {
+    outputEl.style.display = 'block';
+    outputEl.textContent = 'Running…';
+    const form = new FormData();
+    form.append('command', command);
+    form.append('timeout', timeout);
+    try {
+      const res = await fetch('/shell/test', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.error && !data.output) {
+        outputEl.textContent = '⚠ ' + data.error;
+        outputEl.style.color = '#ff8080';
+      } else {
+        outputEl.style.color = '#e0e0e0';
+        outputEl.textContent = data.output || '(no output)';
+        if (data.error) outputEl.textContent += '\n⚠ ' + data.error;
+      }
+    } catch (e) {
+      outputEl.textContent = 'Request failed: ' + e;
+      outputEl.style.color = '#ff8080';
+    }
+  }
+
+  function testSnippet(id, timeout) {
+    const card = document.getElementById('test-output-' + id).closest('.card');
+    const command = card.querySelector('textarea[name=command]').value;
+    const tout = card.querySelector('input[name=timeout]').value || timeout;
+    runTest(command, tout, document.getElementById('test-output-' + id));
+  }
+
+  function testNewSnippet() {
+    const command = document.getElementById('new-command').value;
+    const timeout = document.querySelector('#add-form input[name=timeout]').value || 10;
+    runTest(command, timeout, document.getElementById('test-output-new'));
+  }
+</script>
+{% endblock %}

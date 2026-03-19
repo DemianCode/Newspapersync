@@ -35,30 +35,41 @@ logging.basicConfig(
 logger = logging.getLogger("newspapersync")
 
 
-def run_pipeline() -> None:
-    """Full pipeline: collect → build PDF → sync to reMarkable."""
+def run_pipeline() -> bool:
+    """Full pipeline: collect → build PDF → sync to reMarkable.
+
+    Returns True if sync succeeded, False if sync failed.
+    Raises on PDF generation failure.
+    """
     logger.info("━━━ Starting newspaper generation ━━━")
 
+    from app import aggregator, pdf_builder, sync
+    from app.sources import learning
+
+    logger.info("Collecting content from sources…")
+    context = aggregator.collect()
+
+    logger.info("Building PDF…")
+    pdf_path = pdf_builder.build(context)
+
+    # Advance learning feed indexes now that the PDF is confirmed built.
+    # Done before sync so a reMarkable outage doesn't block lesson progression.
     try:
-        from app import aggregator, pdf_builder, sync
-
-        logger.info("Collecting content from sources…")
-        context = aggregator.collect()
-
-        logger.info("Building PDF…")
-        pdf_path = pdf_builder.build(context)
-
-        logger.info("Syncing to reMarkable…")
-        success = sync.sync(pdf_path)
-
-        if success:
-            logger.info("━━━ Done — newspaper delivered ━━━")
-        else:
-            logger.warning("━━━ Done — PDF generated but sync failed ━━━")
-
+        learning.advance_indexes()
     except Exception as exc:
-        logger.exception("Pipeline failed: %s", exc)
-        raise
+        logger.warning("Could not advance learning feed indexes: %s", exc)
+
+    logger.info("Syncing to reMarkable…")
+    success = sync.sync(pdf_path)
+
+    sync.send_pdf_copy(pdf_path)
+
+    if success:
+        logger.info("━━━ Done — newspaper delivered ━━━")
+    else:
+        logger.warning("━━━ Done — PDF generated but sync failed ━━━")
+
+    return success
 
 
 def main() -> None:

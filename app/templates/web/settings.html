@@ -276,6 +276,150 @@
 </form>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: PDF Email Delivery
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">PDF Email Delivery</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="PDF_EMAIL_ENABLED" value="false">
+      <input type="checkbox" name="PDF_EMAIL_ENABLED" value="true"
+        {% if editable.PdfEmail.PDF_EMAIL_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <label class="field-label" for="PDF_EMAIL_RECIPIENT">Recipient(s)</label>
+    <input type="text" id="PDF_EMAIL_RECIPIENT" name="PDF_EMAIL_RECIPIENT"
+      value="{{ editable.PdfEmail.PDF_EMAIL_RECIPIENT }}"
+      placeholder="you@example.com, partner@example.com"
+      style="width:100%;max-width:340px;">
+    <div style="font-family:-apple-system,sans-serif;font-size:0.75rem;color:#888;margin-top:4px;">
+      Comma-separated for multiple recipients.
+    </div>
+  </div>
+
+  <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
+      <strong>SMTP credentials</strong> (host, port, username, password) are secrets — set them in your
+      <span class="mono">.env</span> file. See <span class="mono">.env.example</span> for the required keys.
+    </p>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save PDF Email</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Wikipedia
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Wikipedia — Article of the Day</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="WIKIPEDIA_ENABLED" value="false">
+      <input type="checkbox" name="WIKIPEDIA_ENABLED" value="true"
+        {% if editable.Wikipedia.WIKIPEDIA_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Fetches today's Wikipedia featured article (title + summary). No API key required.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Wikipedia</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Wikiquote Daily
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Wikiquote — Quote of the Day</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="WIKIQUOTE_DAILY_ENABLED" value="false">
+      <input type="checkbox" name="WIKIQUOTE_DAILY_ENABLED" value="true"
+        {% if editable.WikiquoteDaily.WIKIQUOTE_DAILY_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Fetches today's featured quote from Wikiquote (quote + attribution). No API key required.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Wikiquote</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Word of the Day
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Word of the Day</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="WOTD_ENABLED" value="false">
+      <input type="checkbox" name="WOTD_ENABLED" value="true"
+        {% if editable.WordOfDay.WOTD_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Fetches today's word and definition from Merriam-Webster. No API key required.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Word of the Day</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Sudoku
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Sudoku Puzzle</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="SUDOKU_ENABLED" value="false">
+      <input type="checkbox" name="SUDOKU_ENABLED" value="true"
+        {% if editable.Sudoku.SUDOKU_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <label class="field-label" for="SUDOKU_DIFFICULTY">Difficulty</label>
+    <select id="SUDOKU_DIFFICULTY" name="SUDOKU_DIFFICULTY" style="padding:7px 10px;border:1px solid #ccc;border-radius:3px;font-size:0.85rem;background:white;">
+      <option value="easy"   {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'easy' %}selected{% endif %}>Easy (~41 clues)</option>
+      <option value="medium" {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'medium' or not editable.Sudoku.SUDOKU_DIFFICULTY %}selected{% endif %}>Medium (~31 clues)</option>
+      <option value="hard"   {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'hard' %}selected{% endif %}>Hard (~23 clues)</option>
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Sudoku</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      READ-ONLY: docker-compose.yml env vars (reMarkable, AI, etc.)
      ══════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="background:#fffbf0;border-color:#f0e8c8;margin-bottom:20px;">

@@ -14,6 +14,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+import json
+
 import yaml
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -56,18 +58,22 @@ def run_pipeline_tracked() -> None:
     try:
         from app.main import run_pipeline
 
-        _state.update(
-            {
-                "last_status": "running",
-                "last_run": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "last_error": None,
-            }
-        )
-        run_pipeline()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        _state.update({"last_status": "running", "last_run": now, "last_error": None})
+        _sync_state.update({"last_sync_status": "running", "last_sync": now, "last_sync_error": None})
+
+        sync_ok = run_pipeline()
+
         _state["last_status"] = "success"
+        if sync_ok:
+            _sync_state["last_sync_status"] = "success"
+        else:
+            _sync_state["last_sync_status"] = "error"
+            _sync_state["last_sync_error"] = "Sync failed — check container logs"
     except Exception as exc:
         _state["last_status"] = "error"
         _state["last_error"] = str(exc)
+        _sync_state["last_sync_status"] = None  # didn't reach sync step
         logger.exception("Pipeline failed from web trigger: %s", exc)
     finally:
         _run_lock.release()
@@ -296,6 +302,23 @@ async def settings_page(request: Request):
             "EMAIL_IMAP_PORT":  eff("EMAIL_IMAP_PORT", "993"),
             "EMAIL_MAX_ITEMS":  eff("EMAIL_MAX_ITEMS", "10"),
         },
+        "PdfEmail": {
+            "PDF_EMAIL_ENABLED":   eff("PDF_EMAIL_ENABLED", "false"),
+            "PDF_EMAIL_RECIPIENT": eff("PDF_EMAIL_RECIPIENT", ""),
+        },
+        "Wikipedia": {
+            "WIKIPEDIA_ENABLED": eff("WIKIPEDIA_ENABLED", "false"),
+        },
+        "WikiquoteDaily": {
+            "WIKIQUOTE_DAILY_ENABLED": eff("WIKIQUOTE_DAILY_ENABLED", "false"),
+        },
+        "WordOfDay": {
+            "WOTD_ENABLED": eff("WOTD_ENABLED", "false"),
+        },
+        "Sudoku": {
+            "SUDOKU_ENABLED":    eff("SUDOKU_ENABLED", "false"),
+            "SUDOKU_DIFFICULTY": eff("SUDOKU_DIFFICULTY", "medium"),
+        },
     }
 
     readonly_config = {
@@ -335,6 +358,31 @@ async def save_settings(request: Request):
 
     # Email (non-secret)
     for key in ("EMAIL_ENABLED", "EMAIL_IMAP_HOST", "EMAIL_IMAP_PORT", "EMAIL_MAX_ITEMS"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # PDF email delivery
+    for key in ("PDF_EMAIL_ENABLED", "PDF_EMAIL_RECIPIENT"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Wikipedia
+    for key in ("WIKIPEDIA_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Wikiquote Daily
+    for key in ("WIKIQUOTE_DAILY_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Word of the Day
+    for key in ("WOTD_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Sudoku
+    for key in ("SUDOKU_ENABLED", "SUDOKU_DIFFICULTY"):
         if key in form:
             updates[key] = str(form[key]).strip()
 
@@ -421,3 +469,137 @@ def _save_sources_config(config: dict) -> None:
 
 def _load_feeds() -> list:
     return _load_sources_config().get("rss", {}).get("feeds", [])
+
+
+# ── Learning Feeds ─────────────────────────────────────────────────────────────
+
+
+@app.get("/learning", response_class=HTMLResponse)
+async def learning_page(request: Request):
+    from app.sources import learning
+    return templates.TemplateResponse(
+        "learning.html",
+        {
+            "request": request,
+            "active": "learning",
+            "feeds": learning.get_feeds_with_progress(),
+            "saved": "saved" in request.query_params,
+            "error": request.query_params.get("error", ""),
+        },
+    )
+
+
+@app.post("/learning/add")
+async def add_learning_feed(request: Request):
+    from app.sources import learning
+    form = await request.form()
+    name = str(form.get("name", "")).strip()
+    max_per_day = max(1, int(form.get("max_lessons_per_day") or 1))
+    file = form.get("curriculum_file")
+
+    if not name or not file:
+        return RedirectResponse("/learning?error=Name+and+curriculum+file+are+required", status_code=303)
+
+    try:
+        content = await file.read()
+        curriculum = json.loads(content)
+        if not isinstance(curriculum.get("lessons"), list) or not curriculum["lessons"]:
+            raise ValueError("curriculum must have a non-empty 'lessons' array")
+    except (json.JSONDecodeError, ValueError) as exc:
+        return RedirectResponse(f"/learning?error={str(exc)[:120]}", status_code=303)
+
+    learning.add_feed(name, curriculum, max_per_day)
+    return RedirectResponse("/learning?saved", status_code=303)
+
+
+@app.post("/learning/update")
+async def update_learning_feed(request: Request):
+    from app.sources import learning
+    form = await request.form()
+    feed_id = str(form.get("id", "")).strip()
+    name = str(form.get("name", "")).strip()
+    active = form.get("active") == "true"
+    max_per_day = max(1, int(form.get("max_lessons_per_day") or 1))
+    learning.update_feed(feed_id, name=name, active=active, max_lessons_per_day=max_per_day)
+    return RedirectResponse("/learning?saved", status_code=303)
+
+
+@app.post("/learning/reset")
+async def reset_learning_feed(request: Request):
+    from app.sources import learning
+    form = await request.form()
+    feed_id = str(form.get("id", "")).strip()
+    learning.update_feed(feed_id, current_index=0)
+    return RedirectResponse("/learning?saved", status_code=303)
+
+
+@app.post("/learning/delete")
+async def delete_learning_feed(request: Request):
+    from app.sources import learning
+    form = await request.form()
+    feed_id = str(form.get("id", "")).strip()
+    learning.delete_feed(feed_id)
+    return RedirectResponse("/learning", status_code=303)
+
+
+# ── Shell Snippets ─────────────────────────────────────────────────────────────
+
+
+@app.get("/shell", response_class=HTMLResponse)
+async def shell_page(request: Request):
+    from app.sources import shell
+    return templates.TemplateResponse(
+        "shell.html",
+        {
+            "request": request,
+            "active": "shell",
+            "snippets": shell.get_snippets(),
+            "saved": "saved" in request.query_params,
+        },
+    )
+
+
+@app.post("/shell/add")
+async def add_shell_snippet(request: Request):
+    from app.sources import shell
+    form = await request.form()
+    name = str(form.get("name", "")).strip()
+    command = str(form.get("command", "")).strip()
+    timeout = max(1, min(60, int(form.get("timeout") or 10)))
+    if name and command:
+        shell.add_snippet(name, command, timeout)
+    return RedirectResponse("/shell?saved", status_code=303)
+
+
+@app.post("/shell/update")
+async def update_shell_snippet(request: Request):
+    from app.sources import shell
+    form = await request.form()
+    snippet_id = str(form.get("id", "")).strip()
+    name = str(form.get("name", "")).strip()
+    command = str(form.get("command", "")).strip()
+    active = form.get("active") == "true"
+    timeout = max(1, min(60, int(form.get("timeout") or 10)))
+    shell.update_snippet(snippet_id, name=name, command=command, active=active, timeout=timeout)
+    return RedirectResponse("/shell?saved", status_code=303)
+
+
+@app.post("/shell/delete")
+async def delete_shell_snippet(request: Request):
+    from app.sources import shell
+    form = await request.form()
+    snippet_id = str(form.get("id", "")).strip()
+    shell.delete_snippet(snippet_id)
+    return RedirectResponse("/shell", status_code=303)
+
+
+@app.post("/shell/test")
+async def test_shell_snippet(request: Request):
+    from app.sources import shell
+    form = await request.form()
+    command = str(form.get("command", "")).strip()
+    timeout = max(1, min(30, int(form.get("timeout") or 10)))
+    if not command:
+        return JSONResponse({"output": "", "error": "No command provided"})
+    output, error = shell.run_test(command, timeout)
+    return JSONResponse({"output": output, "error": error})
