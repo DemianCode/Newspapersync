@@ -44,12 +44,20 @@ def run_pipeline() -> bool:
     logger.info("━━━ Starting newspaper generation ━━━")
 
     from app import aggregator, pdf_builder, sync
+    from app.sources import learning
 
     logger.info("Collecting content from sources…")
     context = aggregator.collect()
 
     logger.info("Building PDF…")
     pdf_path = pdf_builder.build(context)
+
+    # Advance learning feed indexes now that the PDF is confirmed built.
+    # Done before sync so a reMarkable outage doesn't block lesson progression.
+    try:
+        learning.advance_indexes()
+    except Exception as exc:
+        logger.warning("Could not advance learning feed indexes: %s", exc)
 
     logger.info("Syncing to reMarkable…")
     success = sync.sync(pdf_path)

@@ -46,11 +46,11 @@ def _load_appearance() -> dict:
 
 def collect() -> dict:
     """Run all enabled sources and return structured newspaper context."""
-    from app.sources import weather, rss, email_source, ticktick
+    from app.sources import weather, rss, email_source, ticktick, learning, shell
 
     blocks: list[dict] = []
 
-    for source_module in [weather, ticktick, email_source, rss]:
+    for source_module in [weather, ticktick, email_source, rss, learning, shell]:
         try:
             fetched = source_module.fetch()
             blocks.extend(fetched)
@@ -62,9 +62,11 @@ def collect() -> dict:
 
     # Split into typed groups for the template
     weather_blocks = [b for b in blocks if b["type"] == "weather"]
-    task_blocks = [b for b in blocks if b["type"] == "task"]
-    email_blocks = [b for b in blocks if b["type"] == "email"]
+    task_blocks    = [b for b in blocks if b["type"] == "task"]
+    email_blocks   = [b for b in blocks if b["type"] == "email"]
     article_blocks = [b for b in blocks if b["type"] == "article"]
+    lesson_blocks  = [b for b in blocks if b["type"] == "lesson"]
+    shell_blocks   = [b for b in blocks if b["type"] == "shell"]
 
     # Group articles by source feed
     feeds: dict[str, list[dict]] = {}
@@ -78,7 +80,9 @@ def collect() -> dict:
         "weather": weather_blocks[0] if weather_blocks else None,
         "tasks": task_blocks,
         "emails": email_blocks,
-        "feeds": feeds,          # {feed_name: [article, ...]}
+        "feeds": feeds,
+        "lessons": lesson_blocks,
+        "shell_outputs": shell_blocks,
         "all_blocks": blocks,
         "config": _load_appearance(),
     }

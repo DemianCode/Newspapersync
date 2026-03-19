@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Learning — NewspaSync{% endblock %}
+
+{% block content %}
+<div class="page-heading">Learning Feeds</div>
+
+{% if saved %}<div class="flash flash-success">Saved.</div>{% endif %}
+{% if error %}<div class="flash" style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;">{{ error }}</div>{% endif %}
+
+<!-- ── Active courses ── -->
+{% if feeds %}
+{% for feed in feeds %}
+<div class="card" style="border-left: 4px solid {% if feed.complete %}#6c757d{% elif feed.active %}#28a745{% else %}#aaa{% endif %};">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+
+    <div style="flex:1; min-width:200px;">
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-weight:700; font-size:1rem; margin-bottom:4px;">
+        {{ feed.name }}
+        {% if feed.complete %}<span class="badge badge-idle" style="margin-left:8px;">Complete</span>
+        {% elif feed.active %}<span class="badge badge-success" style="margin-left:8px;">Active</span>
+        {% else %}<span class="badge badge-idle" style="margin-left:8px;">Paused</span>{% endif %}
+      </div>
+      <div class="text-muted" style="margin-bottom:10px;">{{ feed.curriculum_description or feed.curriculum_title }}</div>
+
+      <!-- Progress bar -->
+      {% if feed.total_lessons %}
+      {% set pct = ((feed.current_index / feed.total_lessons) * 100) | round | int %}
+      <div style="margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:0.78rem; color:#555; margin-bottom:3px;">
+          <span>Progress</span>
+          <span>{{ feed.current_index }} / {{ feed.total_lessons }} lessons</span>
+        </div>
+        <div style="background:#e9ecef; border-radius:4px; height:6px; overflow:hidden;">
+          <div style="background:{% if feed.complete %}#6c757d{% else %}#d94f2e{% endif %}; width:{{ pct }}%; height:100%; border-radius:4px;"></div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="text-muted">{{ feed.max_lessons_per_day }} lesson{{ 's' if feed.max_lessons_per_day != 1 else '' }} per day</div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex; flex-direction:column; gap:6px; min-width:130px;">
+
+      <!-- Edit form -->
+      <form method="post" action="/learning/update" style="display:flex; flex-direction:column; gap:4px;">
+        <input type="hidden" name="id" value="{{ feed.id }}">
+        <input type="text" name="name" value="{{ feed.name }}" style="width:100%;" placeholder="Course name">
+        <div style="display:flex; gap:4px; align-items:center;">
+          <label class="field-label" style="margin:0; white-space:nowrap;">Per day</label>
+          <input type="number" name="max_lessons_per_day" value="{{ feed.max_lessons_per_day }}" min="1" max="10" style="width:50px;">
+        </div>
+        <input type="hidden" name="active" value="{{ 'false' if feed.active else 'true' }}">
+        <div style="display:flex; gap:4px;">
+          <button type="submit" class="btn btn-ghost btn-sm" style="flex:1;">Save</button>
+          <button type="submit" class="btn btn-ghost btn-sm" style="flex:1; background:{% if feed.active %}#fff3cd;color:#856404{% else %}#d4edda;color:#155724{% endif %};"
+                  formaction="/learning/update"
+                  onclick="this.form.querySelector('[name=active]').value='{{ 'false' if feed.active else 'true' }}'">
+            {{ 'Pause' if feed.active else 'Resume' }}
+          </button>
+        </div>
+      </form>
+
+      <form method="post" action="/learning/reset"
+            onsubmit="return confirm('Reset progress for {{ feed.name }} back to lesson 1?')">
+        <input type="hidden" name="id" value="{{ feed.id }}">
+        <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;">Reset Progress</button>
+      </form>
+
+      <form method="post" action="/learning/delete"
+            onsubmit="return confirm('Delete {{ feed.name }}? This cannot be undone.')">
+        <input type="hidden" name="id" value="{{ feed.id }}">
+        <button type="submit" class="btn btn-danger btn-sm" style="width:100%;">Delete</button>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><p class="text-muted">No learning feeds yet. Upload a curriculum below to get started.</p></div>
+{% endif %}
+
+<!-- ── Add course ── -->
+<div class="card">
+  <div class="card-title">Add Course</div>
+
+  <form method="post" action="/learning/add" enctype="multipart/form-data">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+      <div>
+        <label class="field-label">Course name</label>
+        <input type="text" name="name" placeholder="e.g. Git Basics" style="width:100%;" required>
+      </div>
+      <div>
+        <label class="field-label">Lessons per day</label>
+        <input type="number" name="max_lessons_per_day" value="1" min="1" max="10" style="width:80px;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <label class="field-label">Curriculum JSON file</label>
+      <input type="file" name="curriculum_file" accept=".json" required
+             style="display:block; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:0.85rem;">
+    </div>
+
+    <button type="submit" class="btn btn-primary">Upload Course</button>
+  </form>
+
+  <details style="margin-top:20px;">
+    <summary style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:0.82rem; color:#555; cursor:pointer; user-select:none;">
+      Curriculum JSON format
+    </summary>
+    <pre style="margin-top:10px; background:#f7f7f7; border:1px solid #e0e0e0; border-radius:3px; padding:12px; font-size:0.78rem; overflow-x:auto;">{
+  "title": "Git Basics",
+  "description": "Learn Git from the ground up",
+  "lessons": [
+    {
+      "title": "What is Version Control?",
+      "content": "Version control is a system that records changes to files over time..."
+    },
+    {
+      "title": "Installing Git",
+      "content": "Download Git from https://git-scm.com and run the installer..."
+    }
+  ]
+}</pre>
+  </details>
+</div>
+{% endblock %}
