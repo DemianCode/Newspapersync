@@ -1,7 +1,7 @@
 # NewspaSync
 
 A self-hosted daily newspaper generator that syncs to your reMarkable.
-Runs as a single Docker container. Includes a web UI for managing feeds and previewing output.
+Runs as a single Docker container with a web UI for managing everything.
 
 ---
 
@@ -15,6 +15,8 @@ Runs as a single Docker container. Includes a web UI for managing feeds and prev
 - **AI summaries** — optional per-article summaries via any OpenAI-compatible API (or local Ollama)
 - **reMarkable sync** — uploads today's PDF, archives previous days, prunes old archives
 - **WeasyPrint PDF** — clean newspaper layout, A5 (reMarkable native) or A4
+- **Learning Feeds** — sequential lesson delivery from uploaded JSON curricula, with progress tracking
+- **Shell Snippets** — run shell commands at build time; output appears in your PDF
 
 ---
 
@@ -188,10 +190,186 @@ Visit `http://localhost:3050` (local) or `http://<unraid-ip>:3050` (Unraid) afte
 |---|---|---|
 | Dashboard | `/` | View the latest PDF, trigger a manual run, see run history |
 | RSS Sources | `/sources` | Add, edit, and delete RSS feeds — saves immediately |
+| Learning | `/learning` | Upload curricula and track lesson progress per course |
+| Shell | `/shell` | Define shell commands whose output appears in the PDF |
 | Settings | `/settings` | View all current configuration and common commands |
 
 Changes to RSS sources take effect on the next generation run (no restart needed).
 Changes to settings in `docker-compose.yml` require a container restart (`./redeploy.sh`).
+
+---
+
+## Learning Feeds
+
+The Learning Feed turns your newspaper into a daily lesson delivery system. You upload a curriculum as a JSON file and the app delivers one lesson per day, automatically advancing to the next after the PDF is successfully built.
+
+### How it works
+
+1. Go to **Learning** in the web UI
+2. Upload a `curriculum.json` file and give the course a name
+3. Each day at build time, the current lesson appears in your newspaper under a **Learning** section
+4. The lesson index advances only after the PDF is confirmed built — a reMarkable outage won't cause you to miss a lesson
+5. Multiple courses run simultaneously; each tracks its own position independently
+
+### Controls
+
+| Control | What it does |
+|---|---|
+| Active / Pause | Toggle whether this course appears in the next PDF |
+| Lessons per day | How many consecutive lessons to include per build (default: 1) |
+| Reset Progress | Restart the course from lesson 1 |
+| Delete | Remove the course and its curriculum file |
+
+### Curriculum JSON format
+
+The simplest valid curriculum:
+
+```json
+{
+  "title": "My Course",
+  "lessons": [
+    {"title": "Lesson 1 title", "content": "Lesson 1 body text."},
+    {"title": "Lesson 2 title", "content": "Lesson 2 body text."}
+  ]
+}
+```
+
+Full format with all optional fields:
+
+```json
+{
+  "title": "Git Basics",
+  "description": "Learn Git from the ground up, one concept per day.",
+  "lessons": [
+    {
+      "title": "What is Version Control?",
+      "content": "Version control is a system that records changes to files over time, so you can recall specific versions later. Think of it as an unlimited undo history for your entire project."
+    },
+    {
+      "title": "Installing Git",
+      "content": "Download Git from https://git-scm.com. On Mac, run: brew install git. On Ubuntu: sudo apt install git. Verify with: git --version"
+    },
+    {
+      "title": "Your First Repository",
+      "content": "Create a new folder, open a terminal there, and run:\n\n  git init\n\nThis creates a hidden .git directory. Your project is now tracked by Git."
+    }
+  ]
+}
+```
+
+**Field reference:**
+
+| Field | Required | Description |
+|---|---|---|
+| `title` | No | Course title (shown in the web UI progress display) |
+| `description` | No | Short description (shown below the course name in the UI) |
+| `lessons` | **Yes** | Array of lesson objects — must have at least one |
+| `lessons[].title` | **Yes** | Lesson heading as it appears in the PDF |
+| `lessons[].content` | **Yes** | Lesson body text. Newlines (`\n`) are preserved in the PDF. |
+
+### Generating curricula with AI
+
+The fastest way to build a curriculum is to ask an AI assistant (Claude, ChatGPT, etc.) to generate one. Paste this prompt, filling in your topic and lesson count:
+
+---
+
+> Create a curriculum JSON for a self-study course on **[TOPIC]**.
+>
+> Requirements:
+> - **[N] lessons** total, one delivered per day
+> - Each lesson should take roughly **5 minutes to read** on a reMarkable e-ink tablet — plain prose only, no markdown formatting, no bullet points, no headers inside the `content` field
+> - Lessons should build on each other progressively, starting from absolute basics
+> - The `content` field must be self-contained: no "see the previous lesson" references, no hyperlinks, no code blocks (inline code using backticks is fine)
+> - Write in a clear, direct style suited to a morning briefing
+>
+> Output only valid JSON in this exact format, with no extra explanation:
+>
+> ```json
+> {
+>   "title": "Course title",
+>   "description": "One sentence description",
+>   "lessons": [
+>     {"title": "Lesson title", "content": "Lesson body text..."},
+>     {"title": "Lesson title", "content": "Lesson body text..."}
+>   ]
+> }
+> ```
+
+---
+
+Replace `[TOPIC]` with what you want to learn (e.g. `Git`, `the Linux command line`, `Docker`, `Python basics`, `touch typing`, `stoicism`) and `[N]` with how many days you want the course to run (e.g. `30`).
+
+**Tips for better results:**
+
+- Ask for **plain prose** — bullet points and headers don't render well in the newspaper layout
+- Specify **reading time**, not word count — "5 minutes to read" gives the AI a better signal than "200 words"
+- Ask the AI to **avoid forward references** — each lesson should stand alone, since you may reset or skip
+- For technical topics, ask the AI to use **inline code** (backticks) for commands rather than code blocks — they survive the PDF layout better
+- If a lesson comes out too long, ask the AI to split it; if too short, ask it to expand with a concrete example
+
+---
+
+## Shell Snippets
+
+Shell Snippets let you run any command at newspaper build time and include the output as a monospace block in your PDF. This turns your newspaper into a personal command centre — container status, disk usage, server health checks, or anything else you can express as a shell command.
+
+### How it works
+
+1. Go to **Shell** in the web UI
+2. Enter a name and a shell command
+3. Click **Test** to run the command immediately and preview the output in the browser
+4. If the output looks right, save it — it will appear in the **System Status** section of every PDF
+
+### Test before committing
+
+The Test button runs the command live inside the Docker container and shows you the raw output in the UI. This solves two common problems:
+
+- **Environment mismatches** — a command that works in your host terminal may not work inside Docker if it depends on a binary that isn't in the image. Test catches this immediately before it silently fails in a PDF.
+- **Formatting surprises** — ANSI colour codes and control characters are stripped automatically, but the test output shows you exactly what will land on the page.
+
+### Controls
+
+| Control | What it does |
+|---|---|
+| Active / Pause | Toggle whether this snippet runs at build time |
+| Timeout | Max seconds to wait for the command (1–60s, default 10s) |
+| Test | Run the command now and show output in the UI |
+| Save | Update the name, command, or timeout |
+| Delete | Remove the snippet |
+
+### Safety
+
+Commands run as root inside the Docker container with `shell=True` (required for pipes, redirects, and subshells). A blocklist prevents obviously destructive patterns:
+
+| Blocked pattern | Why |
+|---|---|
+| `rm -rf` | Recursive forced deletion |
+| `mkfs` | Filesystem formatting |
+| `dd if=` | Raw disk writes |
+| `chmod 777` | World-writable permissions |
+| Fork bombs | Process exhaustion |
+
+Since the container is isolated on a local self-hosted server, the overall risk is low — but the blocklist guards against accidental pastes.
+
+### Output limits
+
+- ANSI escape codes and non-printable control characters are stripped automatically
+- Output is truncated at 3000 characters per snippet
+- If a command exceeds its timeout it is killed and the error is shown in the PDF block
+
+### Example commands
+
+| Command | What it shows |
+|---|---|
+| `uptime` | System load average and uptime |
+| `df -h /` | Root filesystem disk usage |
+| `free -h` | Memory and swap usage |
+| `date +"%A %d %B — %H:%M"` | Formatted current timestamp |
+| `curl -s wttr.in/Sydney?format=3` | Weather one-liner |
+| `ls -lh /mnt/user/ \| head -20` | Directory listing |
+| `docker ps --format "table {{.Names}}\t{{.Status}}"` | Running containers* |
+
+> *The `docker` binary is not installed in the container image by default. To use Docker-related commands, mount the Docker socket and add the Docker CLI to the Dockerfile.
 
 ---
 
@@ -202,14 +380,18 @@ Changes to settings in `docker-compose.yml` require a container restart (`./rede
 ```
 .
 ├── config/
-│   └── sources.yml        # RSS feeds (editable via web UI or directly)
-├── output/                # Generated PDFs
+│   ├── sources.yml              # RSS feeds (editable via web UI or directly)
+│   ├── learning_feeds.yml       # Learning feed state (auto-created)
+│   ├── shell_snippets.yml       # Shell snippet definitions (auto-created)
+│   └── curricula/               # Uploaded curriculum JSON files (auto-created)
+│       └── <feed-id>.json
+├── output/                      # Generated PDFs
 │   └── newspaper-YYYY-MM-DD.pdf
-├── rmapi/                 # rmapi auth state (auto-created, gitignored)
-├── .env                   # Your secrets (gitignored)
-├── docker-compose.yml     # All settings
-├── redeploy.sh            # Rebuild and restart the container
-└── auth-remarkable.sh     # One-time reMarkable auth helper
+├── rmapi/                       # rmapi auth state (auto-created, gitignored)
+├── .env                         # Your secrets (gitignored)
+├── docker-compose.yml           # All settings
+├── redeploy.sh                  # Rebuild and restart the container
+└── auth-remarkable.sh           # One-time reMarkable auth helper
 ```
 
 ### On your reMarkable
