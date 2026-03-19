@@ -302,6 +302,13 @@ async def settings_page(request: Request):
             "EMAIL_IMAP_PORT":  eff("EMAIL_IMAP_PORT", "993"),
             "EMAIL_MAX_ITEMS":  eff("EMAIL_MAX_ITEMS", "10"),
         },
+        "Wikipedia": {
+            "WIKIPEDIA_ENABLED": eff("WIKIPEDIA_ENABLED", "false"),
+        },
+        "Sudoku": {
+            "SUDOKU_ENABLED":    eff("SUDOKU_ENABLED", "false"),
+            "SUDOKU_DIFFICULTY": eff("SUDOKU_DIFFICULTY", "medium"),
+        },
     }
 
     readonly_config = {
@@ -341,6 +348,16 @@ async def save_settings(request: Request):
 
     # Email (non-secret)
     for key in ("EMAIL_ENABLED", "EMAIL_IMAP_HOST", "EMAIL_IMAP_PORT", "EMAIL_MAX_ITEMS"):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Wikipedia
+    for key in ("WIKIPEDIA_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Sudoku
+    for key in ("SUDOKU_ENABLED", "SUDOKU_DIFFICULTY"):
         if key in form:
             updates[key] = str(form[key]).strip()
 

@@ -332,6 +332,37 @@
   .shell-block:last-child { border-bottom: none; }
   .shell-name { font-size: 7pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 3pt; }
   .shell-output { font-family: "Liberation Mono", "Courier New", monospace; font-size: {{ [config.font_size - 2, 6] | max }}pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: break-word; background: #f7f7f7; padding: 4pt 5pt; border: 1px solid #e0e0e0; border-radius: 2pt; }
+
+  /* Wikipedia */
+  .wikipedia-block { break-inside: avoid; }
+  .wikipedia-thumb { display: block; max-width: 120pt; max-height: 90pt; margin: 0 auto 6pt; object-fit: cover; border: 1px solid #ddd; }
+  .wikipedia-extract { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
+
+  /* Sudoku grid */
+  .sudoku-wrap { break-inside: avoid; }
+  .sudoku-grid { border-collapse: collapse; margin: 4pt auto; }
+  .sudoku-grid td {
+    width: 16pt; height: 16pt;
+    text-align: center; vertical-align: middle;
+    font-family: "Liberation Sans", "Arial", sans-serif;
+    font-size: {{ [config.font_size - 1, 7] | max }}pt;
+    font-weight: 600;
+    border: 0.5pt solid #999;
+  }
+  .sudoku-grid td.given { color: #111; }
+  .sudoku-grid td.empty { color: #fff; }
+  /* Bold borders between 3x3 boxes */
+  .sudoku-grid td.box-right  { border-right:  2pt solid #111; }
+  .sudoku-grid td.box-bottom { border-bottom: 2pt solid #111; }
+  .sudoku-grid tr:first-child td { border-top:    2pt solid #111; }
+  .sudoku-grid tr:last-child  td { border-bottom: 2pt solid #111; }
+  .sudoku-grid td:first-child    { border-left:   2pt solid #111; }
+  .sudoku-grid td:last-child     { border-right:  2pt solid #111; }
+
+  /* Layout: prevent orphan section headers */
+  .section-header { break-after: avoid; }
+  p { orphans: 2; widows: 2; }
+
   /* Table layout for masthead sidebar — much more reliable than flex in WeasyPrint */
   .front-grid { display: table; width: 100%; margin-top: 4pt; }
   .toc-panel  { display: table-cell; vertical-align: top; }
@@ -413,6 +444,24 @@
             <td class="toc-pg"><a href="#section-shell" class="toc-pageref"></a></td>
           </tr>
           {% endfor %}
+          {% endif %}
+
+          {% if wikipedia %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikipedia</span></td></tr>
+          <tr>
+            <td class="toc-source">Featured</td>
+            <td class="toc-title">{{ wikipedia.title }}</td>
+            <td class="toc-pg"><a href="#section-wikipedia" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if sudoku %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Puzzle</span></td></tr>
+          <tr>
+            <td class="toc-source">Sudoku</td>
+            <td class="toc-title">{{ sudoku.meta.difficulty | capitalize }}</td>
+            <td class="toc-pg"><a href="#section-sudoku" class="toc-pageref"></a></td>
+          </tr>
           {% endif %}
 
           {% if feeds %}
@@ -524,6 +573,40 @@
   <pre class="shell-output">{{ s.body }}</pre>
 </div>
 {% endfor %}
+{% endif %}
+
+{% if wikipedia %}
+<div id="section-wikipedia" class="section-header">Wikipedia — Article of the Day</div>
+<div class="wikipedia-block">
+  <div class="article-title">{{ wikipedia.title }}</div>
+  <div class="article-meta">{{ wikipedia.published }}</div>
+  {% if wikipedia.meta.thumbnail %}
+  <div style="text-align:center; margin: 4pt 0;">
+    <img class="wikipedia-thumb" src="{{ wikipedia.meta.thumbnail }}" alt="{{ wikipedia.title }}">
+  </div>
+  {% endif %}
+  <div class="wikipedia-extract">{{ wikipedia.body }}</div>
+</div>
+{% endif %}
+
+{% if sudoku %}
+<div id="section-sudoku" class="section-header">Sudoku — {{ sudoku.meta.difficulty | capitalize }}</div>
+<div class="sudoku-wrap">
+  <table class="sudoku-grid">
+    {% for r in range(9) %}
+    <tr>
+      {% for c in range(9) %}
+      {% set val = sudoku.meta.puzzle[r][c] %}
+      <td class="
+        {%- if val != 0 %}given{% else %}empty{% endif %}
+        {%- if c in (2, 5) %} box-right{% endif %}
+        {%- if r in (2, 5) %} box-bottom{% endif %}
+      ">{{ val if val != 0 else '' }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</div>
 {% endif %}
 
 {% if feeds %}

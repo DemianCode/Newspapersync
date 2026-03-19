@@ -276,6 +276,61 @@
 </form>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Wikipedia
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Wikipedia — Article of the Day</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="WIKIPEDIA_ENABLED" value="false">
+      <input type="checkbox" name="WIKIPEDIA_ENABLED" value="true"
+        {% if editable.Wikipedia.WIKIPEDIA_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Fetches today's Wikipedia featured article (title + summary). No API key required.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Wikipedia</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Sudoku
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Sudoku Puzzle</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="SUDOKU_ENABLED" value="false">
+      <input type="checkbox" name="SUDOKU_ENABLED" value="true"
+        {% if editable.Sudoku.SUDOKU_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <div style="margin-bottom:14px;">
+    <label class="field-label" for="SUDOKU_DIFFICULTY">Difficulty</label>
+    <select id="SUDOKU_DIFFICULTY" name="SUDOKU_DIFFICULTY" style="padding:7px 10px;border:1px solid #ccc;border-radius:3px;font-size:0.85rem;background:white;">
+      <option value="easy"   {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'easy' %}selected{% endif %}>Easy (~41 clues)</option>
+      <option value="medium" {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'medium' or not editable.Sudoku.SUDOKU_DIFFICULTY %}selected{% endif %}>Medium (~31 clues)</option>
+      <option value="hard"   {% if editable.Sudoku.SUDOKU_DIFFICULTY == 'hard' %}selected{% endif %}>Hard (~23 clues)</option>
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Sudoku</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      READ-ONLY: docker-compose.yml env vars (reMarkable, AI, etc.)
      ══════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="background:#fffbf0;border-color:#f0e8c8;margin-bottom:20px;">
