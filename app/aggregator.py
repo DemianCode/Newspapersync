@@ -44,13 +44,30 @@ def _load_appearance() -> dict:
     return base
 
 
+def _pick_block(blocks: list[dict], type_name: str, source_name: str) -> dict | None:
+    """Return the first block of type_name, or a source_error for source_name, or None."""
+    for b in blocks:
+        if b["type"] == type_name:
+            return b
+    for b in blocks:
+        if b["type"] == "source_error" and b.get("source") == source_name:
+            return b
+    return None
+
+
 def collect() -> dict:
     """Run all enabled sources and return structured newspaper context."""
-    from app.sources import weather, rss, email_source, ticktick, learning, shell, sudoku, wikipedia
+    from app.sources import (
+        weather, rss, email_source, ticktick, learning, shell, sudoku,
+        wikipedia, wikiquote_daily, word_of_the_day,
+    )
 
     blocks: list[dict] = []
 
-    for source_module in [weather, ticktick, email_source, rss, learning, shell, sudoku, wikipedia]:
+    for source_module in [
+        weather, ticktick, email_source, rss, learning, shell, sudoku,
+        wikipedia, wikiquote_daily, word_of_the_day,
+    ]:
         try:
             fetched = source_module.fetch()
             blocks.extend(fetched)
@@ -61,14 +78,13 @@ def collect() -> dict:
         blocks = _ai_summarise(blocks)
 
     # Split into typed groups for the template
-    weather_blocks   = [b for b in blocks if b["type"] == "weather"]
-    task_blocks      = [b for b in blocks if b["type"] == "task"]
-    email_blocks     = [b for b in blocks if b["type"] == "email"]
-    article_blocks   = [b for b in blocks if b["type"] == "article"]
-    lesson_blocks    = [b for b in blocks if b["type"] == "lesson"]
-    shell_blocks     = [b for b in blocks if b["type"] == "shell"]
-    sudoku_blocks    = [b for b in blocks if b["type"] == "sudoku"]
-    wikipedia_blocks = [b for b in blocks if b["type"] == "wikipedia"]
+    weather_blocks  = [b for b in blocks if b["type"] == "weather"]
+    task_blocks     = [b for b in blocks if b["type"] == "task"]
+    email_blocks    = [b for b in blocks if b["type"] == "email"]
+    article_blocks  = [b for b in blocks if b["type"] == "article"]
+    lesson_blocks   = [b for b in blocks if b["type"] == "lesson"]
+    shell_blocks    = [b for b in blocks if b["type"] == "shell"]
+    sudoku_blocks   = [b for b in blocks if b["type"] == "sudoku"]
 
     # Group articles by source feed
     feeds: dict[str, list[dict]] = {}
@@ -86,7 +102,9 @@ def collect() -> dict:
         "lessons": lesson_blocks,
         "shell_outputs": shell_blocks,
         "sudoku": sudoku_blocks[0] if sudoku_blocks else None,
-        "wikipedia": wikipedia_blocks[0] if wikipedia_blocks else None,
+        "wikipedia": _pick_block(blocks, "wikipedia", "wikipedia"),
+        "wikiquote": _pick_block(blocks, "wikiquote", "wikiquote_daily"),
+        "word_of_the_day": _pick_block(blocks, "word_of_the_day", "word_of_the_day"),
         "all_blocks": blocks,
         "config": _load_appearance(),
     }

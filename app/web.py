@@ -305,6 +305,12 @@ async def settings_page(request: Request):
         "Wikipedia": {
             "WIKIPEDIA_ENABLED": eff("WIKIPEDIA_ENABLED", "false"),
         },
+        "WikiquoteDaily": {
+            "WIKIQUOTE_DAILY_ENABLED": eff("WIKIQUOTE_DAILY_ENABLED", "false"),
+        },
+        "WordOfDay": {
+            "WOTD_ENABLED": eff("WOTD_ENABLED", "false"),
+        },
         "Sudoku": {
             "SUDOKU_ENABLED":    eff("SUDOKU_ENABLED", "false"),
             "SUDOKU_DIFFICULTY": eff("SUDOKU_DIFFICULTY", "medium"),
@@ -353,6 +359,16 @@ async def save_settings(request: Request):
 
     # Wikipedia
     for key in ("WIKIPEDIA_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Wikiquote Daily
+    for key in ("WIKIQUOTE_DAILY_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Word of the Day
+    for key in ("WOTD_ENABLED",):
         if key in form:
             updates[key] = str(form[key]).strip()
 

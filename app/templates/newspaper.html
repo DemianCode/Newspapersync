@@ -338,6 +338,22 @@
   .wikipedia-thumb { display: block; max-width: 120pt; max-height: 90pt; margin: 0 auto 6pt; object-fit: cover; border: 1px solid #ddd; }
   .wikipedia-extract { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
 
+  /* Wikiquote */
+  .wikiquote-block { break-inside: avoid; }
+  .wikiquote-quote { font-size: {{ config.font_size + 1 }}pt; font-style: italic; line-height: 1.65; margin-bottom: 4pt; }
+  .wikiquote-attr { font-size: {{ config.font_size - 1.5 }}pt; color: #555; text-align: right; }
+
+  /* Word of the Day */
+  .wotd-block { break-inside: avoid; }
+  .wotd-word { font-size: {{ config.font_size + 3 }}pt; font-weight: 700; margin-bottom: 1pt; }
+  .wotd-label { font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; margin-bottom: 4pt; }
+  .wotd-definition { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
+
+  /* Source error notice */
+  .source-notice { break-inside: avoid; border: 1px solid #ccc; background: #f9f9f9; border-radius: 2pt; padding: 5pt 7pt; }
+  .source-notice-label { font-size: {{ config.font_size - 2 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 2pt; }
+  .source-notice-body { font-size: {{ config.font_size - 1 }}pt; color: #555; font-style: italic; }
+
   /* Sudoku grid */
   .sudoku-wrap { break-inside: avoid; }
   .sudoku-grid { border-collapse: collapse; margin: 4pt auto; }
@@ -450,8 +466,26 @@
           <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikipedia</span></td></tr>
           <tr>
             <td class="toc-source">Featured</td>
-            <td class="toc-title">{{ wikipedia.title }}</td>
+            <td class="toc-title">{% if wikipedia.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikipedia.title }}{% endif %}</td>
             <td class="toc-pg"><a href="#section-wikipedia" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if wikiquote %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikiquote</span></td></tr>
+          <tr>
+            <td class="toc-source">Daily</td>
+            <td class="toc-title">{% if wikiquote.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikiquote.meta.attribution or wikiquote.title }}{% endif %}</td>
+            <td class="toc-pg"><a href="#section-wikiquote" class="toc-pageref"></a></td>
+          </tr>
+          {% endif %}
+
+          {% if word_of_the_day %}
+          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Word</span></td></tr>
+          <tr>
+            <td class="toc-source">M-W</td>
+            <td class="toc-title">{% if word_of_the_day.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ word_of_the_day.title }}{% endif %}</td>
+            <td class="toc-pg"><a href="#section-wotd" class="toc-pageref"></a></td>
           </tr>
           {% endif %}
 
@@ -577,6 +611,12 @@
 
 {% if wikipedia %}
 <div id="section-wikipedia" class="section-header">Wikipedia — Article of the Day</div>
+{% if wikipedia.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ wikipedia.title }}</div>
+  <div class="source-notice-body">{{ wikipedia.body }}</div>
+</div>
+{% else %}
 <div class="wikipedia-block">
   <div class="article-title">{{ wikipedia.title }}</div>
   <div class="article-meta">{{ wikipedia.published }}</div>
@@ -587,6 +627,42 @@
   {% endif %}
   <div class="wikipedia-extract">{{ wikipedia.body }}</div>
 </div>
+{% endif %}
+{% endif %}
+
+{% if wikiquote %}
+<div id="section-wikiquote" class="section-header">Wikiquote — Quote of the Day</div>
+{% if wikiquote.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ wikiquote.title }}</div>
+  <div class="source-notice-body">{{ wikiquote.body }}</div>
+</div>
+{% else %}
+<div class="wikiquote-block">
+  <div class="wikiquote-quote">"{{ wikiquote.body }}"</div>
+  {% if wikiquote.meta.attribution %}
+  <div class="wikiquote-attr">{{ wikiquote.meta.attribution }}</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if word_of_the_day %}
+<div id="section-wotd" class="section-header">Word of the Day</div>
+{% if word_of_the_day.type == 'source_error' %}
+<div class="source-notice">
+  <div class="source-notice-label">{{ word_of_the_day.title }}</div>
+  <div class="source-notice-body">{{ word_of_the_day.body }}</div>
+</div>
+{% else %}
+<div class="wotd-block">
+  <div class="wotd-word">{{ word_of_the_day.title }}</div>
+  <div class="wotd-label">{{ word_of_the_day.source }} · {{ word_of_the_day.published }}</div>
+  {% if word_of_the_day.body %}
+  <div class="wotd-definition">{{ word_of_the_day.body }}</div>
+  {% endif %}
+</div>
+{% endif %}
 {% endif %}
 
 {% if sudoku %}
