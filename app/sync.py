@@ -75,6 +75,13 @@ def _sync_rmapi(pdf_path: Path) -> bool:
         if _KEEP_DAYS > 0:
             _prune_archive()
 
+    # Skip upload if this PDF is already in the folder (idempotent re-sync).
+    # rmapi errors on duplicate puts; checking first makes manual re-sync safe.
+    existing = _list_folder(_REMARKABLE_FOLDER)
+    if pdf_path.stem in existing:
+        logger.info("'%s' already on reMarkable — skipping upload", pdf_path.stem)
+        return True
+
     return _rmapi_upload(pdf_path)
 
 

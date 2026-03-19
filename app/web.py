@@ -56,18 +56,22 @@ def run_pipeline_tracked() -> None:
     try:
         from app.main import run_pipeline
 
-        _state.update(
-            {
-                "last_status": "running",
-                "last_run": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "last_error": None,
-            }
-        )
-        run_pipeline()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        _state.update({"last_status": "running", "last_run": now, "last_error": None})
+        _sync_state.update({"last_sync_status": "running", "last_sync": now, "last_sync_error": None})
+
+        sync_ok = run_pipeline()
+
         _state["last_status"] = "success"
+        if sync_ok:
+            _sync_state["last_sync_status"] = "success"
+        else:
+            _sync_state["last_sync_status"] = "error"
+            _sync_state["last_sync_error"] = "Sync failed — check container logs"
     except Exception as exc:
         _state["last_status"] = "error"
         _state["last_error"] = str(exc)
+        _sync_state["last_sync_status"] = None  # didn't reach sync step
         logger.exception("Pipeline failed from web trigger: %s", exc)
     finally:
         _run_lock.release()

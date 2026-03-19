@@ -35,30 +35,31 @@ logging.basicConfig(
 logger = logging.getLogger("newspapersync")
 
 
-def run_pipeline() -> None:
-    """Full pipeline: collect → build PDF → sync to reMarkable."""
+def run_pipeline() -> bool:
+    """Full pipeline: collect → build PDF → sync to reMarkable.
+
+    Returns True if sync succeeded, False if sync failed.
+    Raises on PDF generation failure.
+    """
     logger.info("━━━ Starting newspaper generation ━━━")
 
-    try:
-        from app import aggregator, pdf_builder, sync
+    from app import aggregator, pdf_builder, sync
 
-        logger.info("Collecting content from sources…")
-        context = aggregator.collect()
+    logger.info("Collecting content from sources…")
+    context = aggregator.collect()
 
-        logger.info("Building PDF…")
-        pdf_path = pdf_builder.build(context)
+    logger.info("Building PDF…")
+    pdf_path = pdf_builder.build(context)
 
-        logger.info("Syncing to reMarkable…")
-        success = sync.sync(pdf_path)
+    logger.info("Syncing to reMarkable…")
+    success = sync.sync(pdf_path)
 
-        if success:
-            logger.info("━━━ Done — newspaper delivered ━━━")
-        else:
-            logger.warning("━━━ Done — PDF generated but sync failed ━━━")
+    if success:
+        logger.info("━━━ Done — newspaper delivered ━━━")
+    else:
+        logger.warning("━━━ Done — PDF generated but sync failed ━━━")
 
-    except Exception as exc:
-        logger.exception("Pipeline failed: %s", exc)
-        raise
+    return success
 
 
 def main() -> None:
