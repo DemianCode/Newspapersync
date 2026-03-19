@@ -188,28 +188,12 @@ def _rmapi_upload(pdf_path: Path) -> bool:
 
 # ── Email delivery ─────────────────────────────────────────────────────────────
 
-def send_pdf_copy(pdf_path: Path) -> None:
-    """If PDF_EMAIL_ENABLED, email the PDF to PDF_EMAIL_RECIPIENT(s).
+def _smtp_send(pdf_path: Path, recipients: list[str], subject: str) -> None:
+    """Core SMTP send — attach the PDF and send to the given recipients.
 
-    Completely independent of reMarkable sync — runs after the main sync
-    regardless of whether it succeeded or failed.
-
-    Configure in docker-compose.yml:
-      PDF_EMAIL_ENABLED: "true"
-      PDF_EMAIL_RECIPIENT: "you@example.com"   # comma-separated for multiple
-
-    Shares SMTP credentials with the reMarkable email delivery method (.env):
-      SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
+    Reads SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD from env.
+    Raises on missing credentials or SMTP failure (caller decides how to handle).
     """
-    if os.environ.get("PDF_EMAIL_ENABLED", "false").lower() != "true":
-        return
-
-    recipients_raw = os.environ.get("PDF_EMAIL_RECIPIENT", "")
-    recipients = [r.strip() for r in recipients_raw.split(",") if r.strip()]
-    if not recipients:
-        logger.error("PDF_EMAIL_ENABLED but PDF_EMAIL_RECIPIENT is not set")
-        return
-
     smtp_host = os.environ.get("SMTP_HOST", "")
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))
     smtp_user = os.environ.get("SMTP_USERNAME", "")
@@ -221,10 +205,7 @@ def send_pdf_copy(pdf_path: Path) -> None:
         "SMTP_PASSWORD": smtp_pass,
     }.items() if not v]
     if missing:
-        logger.error("PDF email copy: missing .env values: %s", ", ".join(missing))
-        return
-
-    subject = f"Your Daily Newspaper — {datetime.now(tz=timezone.utc).strftime('%d %B %Y')}"
+        raise ValueError(f"Missing SMTP credentials in .env: {', '.join(missing)}")
 
     msg = MIMEMultipart()
     msg["From"] = smtp_user
@@ -237,61 +218,66 @@ def send_pdf_copy(pdf_path: Path) -> None:
         attachment.add_header("Content-Disposition", "attachment", filename=pdf_path.name)
         msg.attach(attachment)
 
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, recipients, msg.as_string())
+
+
+def send_pdf_copy(pdf_path: Path) -> None:
+    """If PDF_EMAIL_ENABLED, email the PDF to PDF_EMAIL_RECIPIENT(s).
+
+    Controlled by PDF_EMAIL_ENABLED / PDF_EMAIL_RECIPIENT in docker-compose.yml
+    or settings. SMTP credentials come from .env.
+    """
+    if os.environ.get("PDF_EMAIL_ENABLED", "false").lower() != "true":
+        return
+    _send_to_configured_recipients(pdf_path, label="PDF email copy")
+
+
+def force_email_send(pdf_path: Path) -> None:
+    """Send the PDF to PDF_EMAIL_RECIPIENT unconditionally.
+
+    Used by edition delivery when delivery.email = true, bypassing the
+    PDF_EMAIL_ENABLED flag. Reads PDF_EMAIL_RECIPIENT from settings.
+    """
+    _send_to_configured_recipients(pdf_path, label="Edition email delivery")
+
+
+def _send_to_configured_recipients(pdf_path: Path, label: str = "Email") -> None:
+    """Read PDF_EMAIL_RECIPIENT from env/settings and send the PDF."""
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, recipients, msg.as_string())
-        logger.info("PDF copy emailed to: %s", ", ".join(recipients))
+        from app import config_loader
+        recipients_raw = config_loader.get("PDF_EMAIL_RECIPIENT", os.environ.get("PDF_EMAIL_RECIPIENT", ""))
+    except Exception:
+        recipients_raw = os.environ.get("PDF_EMAIL_RECIPIENT", "")
+
+    recipients = [r.strip() for r in recipients_raw.split(",") if r.strip()]
+    if not recipients:
+        logger.error("%s: PDF_EMAIL_RECIPIENT is not set", label)
+        return
+
+    subject = f"Your Daily Newspaper — {datetime.now(tz=timezone.utc).strftime('%d %B %Y')}"
+    try:
+        _smtp_send(pdf_path, recipients, subject)
+        logger.info("%s sent to: %s", label, ", ".join(recipients))
     except Exception as exc:
-        logger.error("PDF email copy failed: %s", exc)
+        logger.error("%s failed: %s", label, exc)
 
 
 def _sync_email(pdf_path: Path) -> bool:
     """Send PDF as attachment to the reMarkable device email address."""
     device_email = os.environ.get("REMARKABLE_DEVICE_EMAIL", "")
-    smtp_host = os.environ.get("SMTP_HOST", "")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USERNAME", "")
-    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-
-    missing = [k for k, v in {
-        "REMARKABLE_DEVICE_EMAIL": device_email,
-        "SMTP_HOST": smtp_host,
-        "SMTP_USERNAME": smtp_user,
-        "SMTP_PASSWORD": smtp_pass,
-    }.items() if not v]
-
-    if missing:
-        logger.error(
-            "Email sync enabled but missing .env values: %s", ", ".join(missing)
-        )
+    if not device_email:
+        logger.error("Email sync: REMARKABLE_DEVICE_EMAIL is not set in .env")
         return False
 
     subject = f"Daily Newspaper — {datetime.now(tz=timezone.utc).strftime('%d %B %Y')}"
-
-    msg = MIMEMultipart()
-    msg["From"] = smtp_user
-    msg["To"] = device_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText("Your daily newspaper is attached.", "plain"))
-
-    with open(pdf_path, "rb") as f:
-        attachment = MIMEApplication(f.read(), _subtype="pdf")
-        attachment.add_header(
-            "Content-Disposition", "attachment", filename=pdf_path.name
-        )
-        msg.attach(attachment)
-
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, device_email, msg.as_string())
-        logger.info("Emailed %s to %s via %s", pdf_path.name, device_email, smtp_host)
+        _smtp_send(pdf_path, [device_email], subject)
+        logger.info("Emailed %s to reMarkable device (%s)", pdf_path.name, device_email)
         return True
     except Exception as exc:
-        logger.error("Email delivery failed: %s", exc)
+        logger.error("Email delivery to reMarkable failed: %s", exc)
         return False

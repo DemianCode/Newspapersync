@@ -2,6 +2,10 @@
 
 Optionally runs AI summarisation if configured.
 Returns a structured context dict consumed by the PDF builder.
+
+When an edition dict is provided, its 'sources' config controls which sources
+run. When edition is None, each source reads its own enable flag from global
+settings (backwards-compatible behaviour).
 """
 
 from __future__ import annotations
@@ -55,24 +59,49 @@ def _pick_block(blocks: list[dict], type_name: str, source_name: str) -> dict | 
     return None
 
 
-def collect() -> dict:
-    """Run all enabled sources and return structured newspaper context."""
+def collect(edition: dict | None = None) -> dict:
+    """Run enabled sources and return structured newspaper context.
+
+    When edition is provided, its 'sources' dict controls which sources run.
+    When edition is None, each source reads its own enable flag from global
+    settings (env vars / settings.yml).
+    """
     from app.sources import (
         weather, rss, email_source, ticktick, learning, shell, sudoku,
         wikipedia, wikiquote_daily, word_of_the_day,
     )
 
-    blocks: list[dict] = []
+    edition_sources = edition.get("sources") if edition else None
 
-    for source_module in [
-        weather, ticktick, email_source, rss, learning, shell, sudoku,
-        wikipedia, wikiquote_daily, word_of_the_day,
-    ]:
-        try:
-            fetched = source_module.fetch()
-            blocks.extend(fetched)
-        except Exception as exc:
-            logger.error("Source %s failed: %s", source_module.__name__, exc)
+    def should_run(key: str) -> bool:
+        """When an edition is active, it controls which sources run.
+        Without an edition, all modules run and each checks its own enable flag."""
+        if edition_sources is not None:
+            return bool(edition_sources.get(key, False))
+        return True  # no edition — let each source handle its own flag
+
+    # (source_key, module) pairs in render order
+    source_map = [
+        ("weather",         weather),
+        ("tasks",           ticktick),
+        ("email_inbox",     email_source),
+        ("news",            rss),
+        ("learning",        learning),
+        ("shell",           shell),
+        ("sudoku",          sudoku),
+        ("wikipedia",       wikipedia),
+        ("wikiquote",       wikiquote_daily),
+        ("word_of_the_day", word_of_the_day),
+    ]
+
+    blocks: list[dict] = []
+    for key, module in source_map:
+        if should_run(key):
+            try:
+                fetched = module.fetch()
+                blocks.extend(fetched)
+            except Exception as exc:
+                logger.error("Source %s failed: %s", module.__name__, exc)
 
     if os.environ.get("AI_SUMMARY_ENABLED", "false").lower() == "true":
         blocks = _ai_summarise(blocks)
@@ -91,6 +120,12 @@ def collect() -> dict:
     for article in article_blocks:
         feeds.setdefault(article["source"], []).append(article)
 
+    # Appearance: start from global, then apply edition overrides
+    config = _load_appearance()
+    if edition and "appearance" in edition:
+        allowed = {"theme", "paper_size", "columns", "font_size"}
+        config.update({k: v for k, v in edition["appearance"].items() if k in allowed})
+
     now = datetime.now()
     return {
         "generated_at": now.strftime("%A, %d %B %Y"),
@@ -105,8 +140,9 @@ def collect() -> dict:
         "wikipedia": _pick_block(blocks, "wikipedia", "wikipedia"),
         "wikiquote": _pick_block(blocks, "wikiquote", "wikiquote_daily"),
         "word_of_the_day": _pick_block(blocks, "word_of_the_day", "word_of_the_day"),
+        "edition_name": edition.get("name") if edition else None,
         "all_blocks": blocks,
-        "config": _load_appearance(),
+        "config": config,
     }
 
 

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Editions — NewspaSync{% endblock %}
+
+{% block content %}
+
+<style>
+  .edition-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    margin-bottom: 28px;
+  }
+  .edition-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 2px solid #1a1a1a;
+    background: #fafafa;
+  }
+  .edition-header h3 {
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.03em;
+  }
+  .edition-body {
+    padding: 20px;
+  }
+  .edition-section {
+    margin-bottom: 20px;
+  }
+  .edition-section-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #eee;
+  }
+  .source-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 16px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.84rem;
+    padding: 4px 0;
+  }
+  .toggle-row input[type=checkbox] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px 20px;
+    margin-bottom: 14px;
+  }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  select {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.85rem;
+    color: #1a1a1a;
+    background: white;
+    cursor: pointer;
+  }
+  select:focus {
+    outline: none;
+    border-color: #1a1a1a;
+    box-shadow: 0 0 0 2px rgba(26,26,26,0.08);
+  }
+  .edition-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+  }
+  .new-edition-form {
+    background: white;
+    border: 2px dashed #ccc;
+    border-radius: 3px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .new-edition-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #555;
+    margin-bottom: 18px;
+  }
+  input[type=time] {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 0.85rem;
+    color: #1a1a1a;
+    background: white;
+  }
+  input[type=time]:focus {
+    outline: none;
+    border-color: #1a1a1a;
+    box-shadow: 0 0 0 2px rgba(26,26,26,0.08);
+  }
+</style>
+
+<h1 class="page-heading">Editions</h1>
+
+{% if saved %}
+<div class="flash flash-success">Changes saved.</div>
+{% endif %}
+{% if error %}
+<div class="flash" style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;">{{ error }}</div>
+{% endif %}
+
+<p style="font-family: -apple-system, sans-serif; font-size: 0.875rem; color: #555; margin-bottom: 24px;">
+  Editions let you run multiple newspaper configurations on different schedules — for example, a morning edition sent to reMarkable and an evening edition sent by email. Each edition has its own sources, delivery targets, and appearance.
+  <br><br>
+  When no editions are configured, the system uses the single global schedule from Settings.
+</p>
+
+{# ── Existing editions ── #}
+{% for edition in editions %}
+<div class="edition-card">
+  <div class="edition-header">
+    <h3>{{ edition.name }}</h3>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <span style="font-family: -apple-system, sans-serif; font-size: 0.8rem; color: #888;">
+        Runs at {{ edition.schedule }}
+        · Sends to {% set targets = [] %}{% if edition.delivery.remarkable %}{% set _ = targets.append('reMarkable') %}{% endif %}{% if edition.delivery.email %}{% set _ = targets.append('Email') %}{% endif %}{{ targets | join(', ') or '—' }}
+      </span>
+    </div>
+  </div>
+
+  <form method="post" action="/editions/{{ edition.id }}/update">
+  <div class="edition-body">
+
+    {# Basic settings #}
+    <div class="edition-section">
+      <div class="edition-section-title">Basic</div>
+      <div class="form-grid">
+        <div class="field-group">
+          <label class="field-label" for="name-{{ edition.id }}">Edition name</label>
+          <input type="text" id="name-{{ edition.id }}" name="name" value="{{ edition.name }}" required style="width: 100%;">
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="schedule-{{ edition.id }}">Schedule (HH:MM, 24h)</label>
+          <input type="time" id="schedule-{{ edition.id }}" name="schedule" value="{{ edition.schedule }}" required style="width: 100%;">
+        </div>
+      </div>
+    </div>
+
+    {# Delivery #}
+    <div class="edition-section">
+      <div class="edition-section-title">Delivery</div>
+      <div class="toggle-row">
+        <input type="hidden" name="delivery_remarkable" value="false">
+        <input type="checkbox" id="del-rm-{{ edition.id }}" name="delivery_remarkable" value="true"
+          {% if edition.delivery.remarkable %}checked{% endif %}>
+        <label for="del-rm-{{ edition.id }}">Send to reMarkable</label>
+      </div>
+      <div class="toggle-row" style="margin-top: 4px;">
+        <input type="hidden" name="delivery_email" value="false">
+        <input type="checkbox" id="del-em-{{ edition.id }}" name="delivery_email" value="true"
+          {% if edition.delivery.email %}checked{% endif %}>
+        <label for="del-em-{{ edition.id }}">Send by email (uses PDF_EMAIL_RECIPIENT from Settings)</label>
+      </div>
+    </div>
+
+    {# Sources #}
+    <div class="edition-section">
+      <div class="edition-section-title">Sources</div>
+      <div class="source-grid">
+        {% for key, label in all_sources %}
+        <div class="toggle-row">
+          <input type="hidden" name="source_{{ key }}" value="false">
+          <input type="checkbox" id="src-{{ edition.id }}-{{ key }}" name="source_{{ key }}" value="true"
+            {% if edition.sources.get(key, False) %}checked{% endif %}>
+          <label for="src-{{ edition.id }}-{{ key }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Appearance #}
+    <div class="edition-section" style="margin-bottom: 0;">
+      <div class="edition-section-title">Appearance</div>
+      <div class="form-grid">
+        <div class="field-group">
+          <label class="field-label" for="theme-{{ edition.id }}">Theme</label>
+          <select id="theme-{{ edition.id }}" name="appearance_theme">
+            {% for t in ['traditional', 'retro', 'readable'] %}
+            <option value="{{ t }}" {% if edition.appearance.theme == t %}selected{% endif %}>{{ t | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="paper-{{ edition.id }}">Paper size</label>
+          <select id="paper-{{ edition.id }}" name="appearance_paper_size">
+            {% for sz in ['A5', 'A4'] %}
+            <option value="{{ sz }}" {% if edition.appearance.paper_size == sz %}selected{% endif %}>{{ sz }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="cols-{{ edition.id }}">Columns</label>
+          <select id="cols-{{ edition.id }}" name="appearance_columns">
+            <option value="1" {% if edition.appearance.columns == 1 %}selected{% endif %}>1</option>
+            <option value="2" {% if edition.appearance.columns == 2 %}selected{% endif %}>2</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="font-{{ edition.id }}">Font size (pt)</label>
+          <input type="number" id="font-{{ edition.id }}" name="appearance_font_size"
+            value="{{ edition.appearance.font_size }}" min="7" max="16" style="width: 80px;">
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="edition-actions">
+    <form method="post" action="/editions/{{ edition.id }}/delete"
+          onsubmit="return confirm('Delete edition \'{{ edition.name }}\'? This cannot be undone.')">
+      <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+    </form>
+    <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+  </div>
+  </form>
+</div>
+{% else %}
+<p class="text-muted" style="margin-bottom: 24px; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
+  No editions yet. Create your first edition below.
+</p>
+{% endfor %}
+
+{# ── Create new edition ── #}
+<div class="new-edition-form">
+  <div class="new-edition-title">+ New Edition</div>
+  <form method="post" action="/editions/create">
+
+    <div class="form-grid" style="margin-bottom: 18px;">
+      <div class="field-group">
+        <label class="field-label" for="new-name">Edition name</label>
+        <input type="text" id="new-name" name="name" placeholder="Morning Edition" required style="width: 100%;">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="new-schedule">Schedule (HH:MM, 24h)</label>
+        <input type="time" id="new-schedule" name="schedule" value="06:00" required style="width: 100%;">
+      </div>
+    </div>
+
+    <div class="edition-section">
+      <div class="edition-section-title">Delivery</div>
+      <div class="toggle-row">
+        <input type="hidden" name="delivery_remarkable" value="false">
+        <input type="checkbox" id="new-del-rm" name="delivery_remarkable" value="true" checked>
+        <label for="new-del-rm">Send to reMarkable</label>
+      </div>
+      <div class="toggle-row" style="margin-top: 4px;">
+        <input type="hidden" name="delivery_email" value="false">
+        <input type="checkbox" id="new-del-em" name="delivery_email" value="true">
+        <label for="new-del-em">Send by email (uses PDF_EMAIL_RECIPIENT from Settings)</label>
+      </div>
+    </div>
+
+    <div class="edition-section">
+      <div class="edition-section-title">Sources</div>
+      <div class="source-grid">
+        {% for key, label in all_sources %}
+        <div class="toggle-row">
+          <input type="hidden" name="source_{{ key }}" value="false">
+          <input type="checkbox" id="new-src-{{ key }}" name="source_{{ key }}" value="true"
+            {% if key in ['weather', 'news', 'wikipedia', 'wikiquote', 'word_of_the_day'] %}checked{% endif %}>
+          <label for="new-src-{{ key }}">{{ label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="edition-section">
+      <div class="edition-section-title">Appearance</div>
+      <div class="form-grid">
+        <div class="field-group">
+          <label class="field-label" for="new-theme">Theme</label>
+          <select id="new-theme" name="appearance_theme">
+            <option value="traditional">Traditional</option>
+            <option value="retro">Retro</option>
+            <option value="readable">Readable</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="new-paper">Paper size</label>
+          <select id="new-paper" name="appearance_paper_size">
+            <option value="A5">A5</option>
+            <option value="A4">A4</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="new-cols">Columns</label>
+          <select id="new-cols" name="appearance_columns">
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="new-font">Font size (pt)</label>
+          <input type="number" id="new-font" name="appearance_font_size" value="9" min="7" max="16" style="width: 80px;">
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: right;">
+      <button type="submit" class="btn btn-primary">Create Edition</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

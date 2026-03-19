@@ -12,11 +12,13 @@ import logging
 import os
 import threading
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import json
 
 import yaml
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -26,17 +28,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="NewspaSync")
 templates = Jinja2Templates(directory="/app/app/templates/web")
 
-# Shared state updated by both the scheduler and web-triggered runs
+# ── Legacy (single-edition) state ────────────────────────────────────────────
 _state: dict = {
     "last_run": None,
     "last_status": None,  # "running" | "success" | "error"
     "last_error": None,
 }
-
-_scheduler = None
 _run_lock = threading.Lock()
 
-# Sync state (separate from pipeline state so both are visible simultaneously)
 _sync_state: dict = {
     "last_sync": None,
     "last_sync_status": None,  # "running" | "success" | "error"
@@ -44,10 +43,41 @@ _sync_state: dict = {
 }
 _sync_lock = threading.Lock()
 
+# ── Per-edition state (editions mode) ────────────────────────────────────────
+_edition_states: dict = {}       # edition_id → {last_run, last_status, …}
+_edition_run_locks: dict = {}    # edition_id → threading.Lock()
+_edition_locks_mutex = threading.Lock()
+
+_scheduler = None
+
 
 def set_scheduler(sched) -> None:
     global _scheduler
     _scheduler = sched
+
+
+def _get_edition_state(edition_id: str) -> dict:
+    if edition_id not in _edition_states:
+        _edition_states[edition_id] = {
+            "last_run": None, "last_status": None, "last_error": None,
+            "last_sync": None, "last_sync_status": None, "last_sync_error": None,
+        }
+    return _edition_states[edition_id]
+
+
+def _get_edition_lock(edition_id: str) -> threading.Lock:
+    with _edition_locks_mutex:
+        if edition_id not in _edition_run_locks:
+            _edition_run_locks[edition_id] = threading.Lock()
+        return _edition_run_locks[edition_id]
+
+
+def _parse_time(time_str: str) -> tuple[int, int]:
+    try:
+        h, m = time_str.strip().split(":")
+        return int(h), int(m)
+    except (ValueError, AttributeError):
+        return 6, 0
 
 
 def run_pipeline_tracked() -> None:
@@ -77,6 +107,47 @@ def run_pipeline_tracked() -> None:
         logger.exception("Pipeline failed from web trigger: %s", exc)
     finally:
         _run_lock.release()
+
+
+def run_pipeline_tracked_for_edition(edition_id: str) -> None:
+    """Run the pipeline for a specific edition and update its per-edition state."""
+    from app import editions as editions_module
+    edition = editions_module.get(edition_id)
+    if not edition:
+        logger.error("Edition '%s' not found — aborting", edition_id)
+        return
+
+    lock = _get_edition_lock(edition_id)
+    if not lock.acquire(blocking=False):
+        logger.info("Edition '%s' already running — skipping duplicate trigger", edition_id)
+        return
+
+    try:
+        from app.main import run_pipeline
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        state = _get_edition_state(edition_id)
+        state.update({
+            "last_run": now, "last_status": "running", "last_error": None,
+            "last_sync": now, "last_sync_status": "running", "last_sync_error": None,
+        })
+
+        sync_ok = run_pipeline(edition)
+
+        state["last_status"] = "success"
+        if sync_ok:
+            state["last_sync_status"] = "success"
+        else:
+            state["last_sync_status"] = "error"
+            state["last_sync_error"] = "Sync failed — check container logs"
+    except Exception as exc:
+        state = _get_edition_state(edition_id)
+        state["last_status"] = "error"
+        state["last_error"] = str(exc)
+        state["last_sync_status"] = None
+        logger.exception("Edition '%s' pipeline failed: %s", edition_id, exc)
+    finally:
+        lock.release()
 
 
 def sync_pdf_tracked(pdf_path: Path) -> None:
@@ -111,34 +182,76 @@ def sync_pdf_tracked(pdf_path: Path) -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
+    from app import editions as editions_module
+
     output_dir = Path("/app/output")
     pdfs = (
         sorted(output_dir.glob("newspaper-*.pdf"), reverse=True)[:10]
         if output_dir.exists()
         else []
     )
-    next_run = None
-    if _scheduler:
-        job = _scheduler.get_job("daily_newspaper")
-        if job and job.next_run_time:
-            next_run = job.next_run_time.strftime("%Y-%m-%d %H:%M %Z")
 
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "active": "dashboard",
-            "pdfs": [p.name for p in pdfs],
-            "latest_pdf": pdfs[0].name if pdfs else None,
-            "state": _state,
-            "sync_state": _sync_state,
-            "next_run": next_run,
-        },
-    )
+    editions_mode = editions_module.has_editions()
+
+    if editions_mode:
+        editions_list = editions_module.load()
+        edition_states = {e["id"]: _get_edition_state(e["id"]) for e in editions_list}
+        edition_next_runs: dict = {}
+        if _scheduler:
+            for e in editions_list:
+                job = _scheduler.get_job(f"edition_{e['id']}")
+                if job and job.next_run_time:
+                    edition_next_runs[e["id"]] = job.next_run_time.strftime("%Y-%m-%d %H:%M %Z")
+
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {
+                "request": request,
+                "active": "dashboard",
+                "pdfs": [p.name for p in pdfs],
+                "latest_pdf": pdfs[0].name if pdfs else None,
+                "editions_mode": True,
+                "editions": editions_list,
+                "edition_states": edition_states,
+                "edition_next_runs": edition_next_runs,
+                "state": _state,
+                "sync_state": _sync_state,
+                "next_run": None,
+            },
+        )
+    else:
+        next_run = None
+        if _scheduler:
+            job = _scheduler.get_job("daily_newspaper")
+            if job and job.next_run_time:
+                next_run = job.next_run_time.strftime("%Y-%m-%d %H:%M %Z")
+
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {
+                "request": request,
+                "active": "dashboard",
+                "pdfs": [p.name for p in pdfs],
+                "latest_pdf": pdfs[0].name if pdfs else None,
+                "editions_mode": False,
+                "state": _state,
+                "sync_state": _sync_state,
+                "next_run": next_run,
+            },
+        )
 
 
 @app.get("/status")
 async def status():
+    from app import editions as editions_module
+    if editions_module.has_editions():
+        return JSONResponse({
+            "editions_mode": True,
+            "editions": {
+                e["id"]: _get_edition_state(e["id"])
+                for e in editions_module.load()
+            },
+        })
     return JSONResponse({**_state, **_sync_state})
 
 
@@ -386,12 +499,14 @@ async def save_settings(request: Request):
         if key in form:
             updates[key] = str(form[key]).strip()
 
-    # Schedule — needs restart to affect the running APScheduler
+    # Schedule — live-reschedule the running APScheduler job
+    new_schedule_time = None
     if "SCHEDULE_TIME" in form:
         val = str(form["SCHEDULE_TIME"]).strip()
         parts = val.split(":")
         if len(parts) == 2 and all(p.isdigit() for p in parts):
             updates["SCHEDULE_TIME"] = val
+            new_schedule_time = val
     if "TZ" in form:
         tz_val = str(form["TZ"]).strip()
         if tz_val:
@@ -400,7 +515,105 @@ async def save_settings(request: Request):
     if updates:
         config_loader.save(updates)
 
+    # Live-reschedule daily_newspaper job without requiring a restart
+    if new_schedule_time and _scheduler:
+        try:
+            h, m = _parse_time(new_schedule_time)
+            tz = updates.get("TZ", os.environ.get("TZ", "UTC"))
+            _scheduler.reschedule_job(
+                "daily_newspaper",
+                trigger=CronTrigger(hour=h, minute=m, timezone=tz),
+            )
+            logger.info("Rescheduled daily_newspaper to %s", new_schedule_time)
+        except Exception as exc:
+            logger.warning("Could not live-reschedule daily_newspaper: %s", exc)
+
     return RedirectResponse("/settings?saved", status_code=303)
+
+
+# ── Editions ──────────────────────────────────────────────────────────────────
+
+
+@app.get("/editions", response_class=HTMLResponse)
+async def editions_page(request: Request):
+    from app import editions as editions_module
+    return templates.TemplateResponse(
+        "editions.html",
+        {
+            "request": request,
+            "active": "editions",
+            "editions": editions_module.load(),
+            "all_sources": editions_module.ALL_SOURCES,
+            "saved": "saved" in request.query_params,
+            "error": request.query_params.get("error", ""),
+        },
+    )
+
+
+@app.post("/editions/create")
+async def create_edition(request: Request):
+    from app import editions as editions_module
+    form = await request.form()
+    try:
+        edition = editions_module.create(dict(form))
+        if _scheduler:
+            h, m = _parse_time(edition["schedule"])
+            tz = os.environ.get("TZ", "UTC")
+            _scheduler.add_job(
+                partial(run_pipeline_tracked_for_edition, edition["id"]),
+                trigger=CronTrigger(hour=h, minute=m, timezone=tz),
+                id=f"edition_{edition['id']}",
+                name=edition["name"],
+                misfire_grace_time=3600,
+            )
+    except Exception as exc:
+        return RedirectResponse(f"/editions?error={str(exc)[:120]}", status_code=303)
+    return RedirectResponse("/editions?saved", status_code=303)
+
+
+@app.post("/editions/{edition_id}/update")
+async def update_edition(edition_id: str, request: Request):
+    from app import editions as editions_module
+    form = await request.form()
+    edition = editions_module.update(edition_id, dict(form))
+    if edition and _scheduler:
+        h, m = _parse_time(edition["schedule"])
+        tz = os.environ.get("TZ", "UTC")
+        job_id = f"edition_{edition_id}"
+        try:
+            _scheduler.reschedule_job(
+                job_id,
+                trigger=CronTrigger(hour=h, minute=m, timezone=tz),
+            )
+            # Also update the job name if it changed
+            job = _scheduler.get_job(job_id)
+            if job:
+                job.name = edition["name"]
+        except Exception:
+            pass  # job might not exist yet if scheduler was restarted
+    return RedirectResponse("/editions?saved", status_code=303)
+
+
+@app.post("/editions/{edition_id}/delete")
+async def delete_edition(edition_id: str, request: Request):
+    from app import editions as editions_module
+    editions_module.delete(edition_id)
+    if _scheduler:
+        try:
+            _scheduler.remove_job(f"edition_{edition_id}")
+        except Exception:
+            pass
+    return RedirectResponse("/editions", status_code=303)
+
+
+@app.post("/editions/{edition_id}/run")
+async def run_edition_now(edition_id: str):
+    t = threading.Thread(
+        target=partial(run_pipeline_tracked_for_edition, edition_id),
+        daemon=True,
+    )
+    t.start()
+    return RedirectResponse("/", status_code=303)
 
 
 @app.post("/settings/appearance")
