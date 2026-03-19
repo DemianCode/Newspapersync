@@ -18,19 +18,28 @@ Runs as a single Docker container. Includes a web UI for managing feeds and prev
 
 ---
 
-## Quick start
+## Deployment
 
-### Step 1 — Copy the secrets file
+- [Local (Linux / Mac / WSL2)](#local-linux--mac--wsl2)
+- [Unraid](#unraid)
+
+---
+
+## Local (Linux / Mac / WSL2)
+
+### Step 1 — Clone and configure secrets
 
 ```bash
+git clone https://github.com/DemianCode/Newspapersync.git
+cd Newspapersync
 cp .env.example .env
 ```
 
-Edit `.env` and fill in only the credentials for sources you plan to use:
+Edit `.env` and fill in only the credentials for the sources you plan to use:
 
 | Secret | When needed |
 |---|---|
-| `EMAIL_USERNAME`, `EMAIL_PASSWORD` | When `EMAIL_ENABLED=true` (inbox summary in newspaper) |
+| `EMAIL_USERNAME`, `EMAIL_PASSWORD` | When `EMAIL_ENABLED=true` |
 | `TICKTICK_CLIENT_ID/SECRET` | When `TICKTICK_ENABLED=true` |
 | `AI_API_KEY` | When `AI_SUMMARY_ENABLED=true` |
 
@@ -38,7 +47,7 @@ Leave unused sections blank — they're ignored.
 
 ---
 
-### Step 2 — Configure in docker-compose.yml
+### Step 2 — Configure settings
 
 Open `docker-compose.yml` and set at minimum:
 
@@ -57,7 +66,7 @@ Enable or disable sources with the `*_ENABLED` flags (weather is on by default, 
 ### Step 3 — Build and start
 
 ```bash
-docker compose up -d --build
+./redeploy.sh
 ```
 
 The web UI is available immediately at **http://localhost:3050**.
@@ -66,27 +75,19 @@ The web UI is available immediately at **http://localhost:3050**.
 
 ### Step 4 — Auth reMarkable (one-time, required)
 
-The container needs to be running before you can auth. Run this to open an interactive rmapi session:
-
 ```bash
-docker compose run --rm newspapersync rmapi
+./auth-remarkable.sh
 ```
 
-rmapi will print something like:
+The script will:
+1. Make sure the container is running
+2. Open rmapi inside the container
+3. Prompt you to visit `https://my.remarkable.com/device/browser/connect`, log in, and paste the one-time code
+4. Automatically verify the auth worked
 
-```
-Go to https://my.remarkable.com/device/desktop/connect
-Enter the one-time code: XXXXXX
-```
+> **Important:** When you see the `[/]>` prompt, type `exit` and press Enter. Do **not** use Ctrl+C — it can kill rmapi before it saves the token.
 
-1. Open that URL in your browser
-2. Log in to your reMarkable account
-3. Copy the one-time code shown on the page
-4. Paste it back into the terminal and press Enter
-
-Auth state is saved to `./rmapi/` on the host and persists across restarts. You should only ever need to do this once.
-
-The newspaper generates at your scheduled time, or click **Generate Now** in the dashboard.
+Auth state is saved to `./rmapi/` and persists across restarts. You should only ever need to do this once.
 
 ---
 
@@ -100,9 +101,88 @@ Follow the OAuth flow. Token is saved to `config/.ticktick_token`.
 
 ---
 
+## Unraid
+
+Unraid doesn't have native `docker compose` support in the UI, so the recommended approach is to manage the container via SSH using the compose files directly. Unraid's Docker Compose Manager plugin also works if you have it installed.
+
+### Step 1 — SSH into your Unraid server and clone the repo
+
+Store the project under your appdata share so it survives array changes:
+
+```bash
+mkdir -p /mnt/user/appdata/newspapersync
+cd /mnt/user/appdata/newspapersync
+git clone https://github.com/DemianCode/Newspapersync.git .
+```
+
+### Step 2 — Configure secrets
+
+```bash
+cp .env.example .env
+nano .env   # or vi .env
+```
+
+Fill in credentials for the sources you plan to use (see table in local setup above).
+
+---
+
+### Step 3 — Configure settings
+
+```bash
+nano docker-compose.yml
+```
+
+Set your timezone, weather coordinates, and schedule time (same fields as local setup above).
+
+---
+
+### Step 4 — Build and start
+
+```bash
+./redeploy.sh
+```
+
+Web UI will be available at `http://<unraid-ip>:3050`.
+
+If you want the container to survive reboots, `restart: unless-stopped` is already set in `docker-compose.yml`. For Unraid, you may also want to add the container to your Unraid Docker autostart list — but since it's compose-managed, the easiest approach is to add `./redeploy.sh` as a User Script (via the User Scripts plugin) set to run at array start.
+
+---
+
+### Step 5 — Auth reMarkable (one-time, required)
+
+Stay in your SSH session and run:
+
+```bash
+cd /mnt/user/appdata/newspapersync
+./auth-remarkable.sh
+```
+
+Follow the same steps as the local auth flow above. The `[/]>` prompt means auth succeeded — type `exit`, don't Ctrl+C.
+
+---
+
+### Step 6 — Auth TickTick (if enabled)
+
+```bash
+docker exec -it newspapersync python -m app.sources.ticktick --auth
+```
+
+---
+
+### Unraid Docker Compose Manager (alternative)
+
+If you have the **Docker Compose Manager** plugin installed:
+
+1. In the Unraid UI go to **Docker → Compose**.
+2. Add a new stack, point it at `/mnt/user/appdata/newspapersync/docker-compose.yml`.
+3. Start the stack from the UI.
+4. SSH in to run `./auth-remarkable.sh` — this step still requires a terminal.
+
+---
+
 ## Web UI
 
-Visit **http://localhost:3050** after starting the container.
+Visit `http://localhost:3050` (local) or `http://<unraid-ip>:3050` (Unraid) after starting the container.
 
 | Page | Path | What it does |
 |---|---|---|
@@ -111,7 +191,7 @@ Visit **http://localhost:3050** after starting the container.
 | Settings | `/settings` | View all current configuration and common commands |
 
 Changes to RSS sources take effect on the next generation run (no restart needed).
-Changes to settings in `docker-compose.yml` require a container restart.
+Changes to settings in `docker-compose.yml` require a container restart (`./redeploy.sh`).
 
 ---
 
@@ -125,9 +205,11 @@ Changes to settings in `docker-compose.yml` require a container restart.
 │   └── sources.yml        # RSS feeds (editable via web UI or directly)
 ├── output/                # Generated PDFs
 │   └── newspaper-YYYY-MM-DD.pdf
-├── rmapi/                 # rmapi auth state (auto-created)
+├── rmapi/                 # rmapi auth state (auto-created, gitignored)
 ├── .env                   # Your secrets (gitignored)
-└── docker-compose.yml     # All settings
+├── docker-compose.yml     # All settings
+├── redeploy.sh            # Rebuild and restart the container
+└── auth-remarkable.sh     # One-time reMarkable auth helper
 ```
 
 ### On your reMarkable
@@ -177,8 +259,11 @@ All non-secret settings live in `docker-compose.yml`. Full inline comments are t
 ## Common commands
 
 ```bash
-# Start (or restart after config changes)
-docker compose up -d --build
+# Rebuild and restart (after any code or config changes)
+./redeploy.sh
+
+# Auth reMarkable (first time, or if token expires)
+./auth-remarkable.sh
 
 # View logs
 docker compose logs -f
@@ -196,7 +281,7 @@ docker compose down
 
 ```bash
 git pull
-docker compose up -d --build
+./redeploy.sh
 ```
 
 Your `config/`, `output/`, `rmapi/`, and `.env` are mounted volumes — they are never overwritten by an update.
