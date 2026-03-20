@@ -36,23 +36,24 @@ Runs as a single Docker container with a web UI for managing everything.
 
 ## Unraid — Community Applications (recommended)
 
-This is the easiest way to install on Unraid. All configuration is done through the Unraid Docker GUI — no SSH or compose files required.
+This installs NewspaSync as a proper Unraid Docker container, configured entirely through the GUI — no SSH or compose files required.
 
-### Step 1 — Add the template repository
+### Step 1 — Copy the template file to Unraid
 
-In Unraid: **Apps** → **Settings** → scroll to **Template Repositories** → add:
+In an Unraid terminal (or via SSH), run:
 
+```bash
+curl -o /boot/config/plugins/dockerMan/templates-user/newspapersync.xml \
+  https://raw.githubusercontent.com/DemianCode/Newspapersync/main/unraid/newspapersync.xml
 ```
-https://raw.githubusercontent.com/DemianCode/Newspapersync/main/unraid/
-```
 
-Click **Save**.
+This saves the template to Unraid's user templates directory. It persists across reboots because it lives on the USB boot drive.
 
-### Step 2 — Install NewspaSync
+### Step 2 — Add the container
 
-Go to **Apps** and search for **NewspaSync**. Click **Install**.
+In Unraid: **Docker** tab → **Add Container** → click the **Template** dropdown at the top → select **NewspaSync**.
 
-Fill in the fields on the template screen. The most important ones:
+Fill in the fields. The most important ones:
 
 | Field | Notes |
 |---|---|
