@@ -65,19 +65,14 @@ Fill in the fields. The most important ones:
 
 Everything else can be left at the default and changed later. Click **Apply**.
 
-### Step 3 — Auth reMarkable (one-time, required)
+### Step 3 — Connect reMarkable (one-time, required)
 
-Once the container is running, open an Unraid terminal and run:
+Open the web UI at `http://<unraid-ip>:3050` → **Settings** → **reMarkable Connection**.
 
-```bash
-docker exec -it NewspaSync rmapi
-```
+1. Click the link to `my.remarkable.com/device/browser/connect`, log in, and copy the one-time code
+2. Paste it into the field and click **Connect**
 
-At the `[/]>` prompt:
-1. Visit `https://my.remarkable.com/device/browser/connect`, log in, and copy the one-time code
-2. Type `exit` and press Enter — do **not** Ctrl+C
-
-The token is saved to your appdata volume and persists across restarts and updates.
+The status badge will turn green when connected. The token is saved to your appdata volume and persists across restarts and updates — you should only ever need to do this once.
 
 ### Step 4 — Auth TickTick (if enabled)
 
@@ -130,11 +125,11 @@ Set your timezone, weather coordinates, and schedule time.
 
 Web UI will be at `http://<unraid-ip>:3050`.
 
-### Step 5 — Auth reMarkable
+### Step 5 — Connect reMarkable
 
-```bash
-./auth-remarkable.sh
-```
+Open `http://<unraid-ip>:3050` → **Settings** → **reMarkable Connection** and follow the on-screen instructions. No terminal needed.
+
+Alternatively via terminal: `docker exec -it newspapersync rmapi`
 
 ### Updating
 
@@ -193,21 +188,16 @@ The web UI is available immediately at **http://localhost:3050**.
 
 ---
 
-### Step 4 — Auth reMarkable (one-time, required)
+### Step 4 — Connect reMarkable (one-time, required)
 
-```bash
-./auth-remarkable.sh
-```
+Open the web UI at **http://localhost:3050** → **Settings** → **reMarkable Connection**.
 
-The script will:
-1. Make sure the container is running
-2. Open rmapi inside the container
-3. Prompt you to visit `https://my.remarkable.com/device/browser/connect`, log in, and paste the one-time code
-4. Automatically verify the auth worked
+1. Click the link to `my.remarkable.com/device/browser/connect`, log in, and copy the one-time code
+2. Paste it into the field and click **Connect**
 
-> **Important:** When you see the `[/]>` prompt, type `exit` and press Enter. Do **not** use Ctrl+C — it can kill rmapi before it saves the token.
+The token is saved to `./rmapi/` and persists across restarts. You should only ever need to do this once.
 
-Auth state is saved to `./rmapi/` and persists across restarts. You should only ever need to do this once.
+Alternatively via terminal: `./auth-remarkable.sh`
 
 ---
 
