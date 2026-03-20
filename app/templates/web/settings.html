@@ -10,6 +10,59 @@
 {% endif %}
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     reMarkable Connection
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>reMarkable Connection</span>
+    {% if remarkable_authenticated %}
+      <span class="badge badge-success">Connected</span>
+    {% else %}
+      <span class="badge badge-idle">Not connected</span>
+    {% endif %}
+  </div>
+
+  {% if remarkable_auth == 'success' %}
+  <div class="flash flash-success" style="margin-bottom:14px;">Connected successfully. reMarkable sync is ready.</div>
+  {% elif remarkable_auth == 'error' %}
+  <div class="flash" style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;margin-bottom:14px;">
+    Connection failed{% if remarkable_auth_msg %}: {{ remarkable_auth_msg }}{% endif %}. Check the code and try again.
+  </div>
+  {% endif %}
+
+  {% if remarkable_authenticated %}
+  <p style="font-family:-apple-system,sans-serif;font-size:0.875rem;color:#555;margin-bottom:14px;">
+    Your reMarkable is authenticated. Newspapers will sync via rmapi on schedule.
+    To re-authenticate (e.g. if the token expires), enter a new one-time code below.
+  </p>
+  {% else %}
+  <p style="font-family:-apple-system,sans-serif;font-size:0.875rem;color:#555;margin-bottom:14px;">
+    Connect your reMarkable to start receiving newspapers. This is a one-time setup.
+  </p>
+  {% endif %}
+
+  <form method="post" action="/settings/remarkable-auth">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.85rem;color:#555;margin-bottom:10px;">
+      1. Visit
+      <a href="https://my.remarkable.com/device/browser/connect" target="_blank"
+         style="color:#1a1a1a;font-weight:600;">my.remarkable.com/device/browser/connect</a>,
+      log in, and copy the one-time code shown on screen.<br>
+      2. Paste it below and click <strong>Connect</strong>.
+    </p>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div>
+        <label class="field-label" for="rmapi-code">One-time code</label>
+        <input type="text" id="rmapi-code" name="code"
+          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          style="width:320px;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.85rem;"
+          autocomplete="off" spellcheck="false">
+      </div>
+      <button type="submit" class="btn btn-primary" id="rmapi-connect-btn">Connect</button>
+    </div>
+  </form>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      EDITABLE: Appearance
      ══════════════════════════════════════════════════════════════════════ -->
 <form method="post" action="/settings/appearance">
@@ -178,10 +231,9 @@
     </div>
   </div>
 
-  <div class="card" style="background:#fffbf0;border-color:#f0e8c8;padding:10px 14px;margin-bottom:14px;">
-    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#6b5800;margin:0;">
-      Schedule and timezone changes take effect after a container restart:
-      <span class="mono">docker compose up -d --force-recreate</span>
+  <div class="card" style="background:#f0f7ff;border-color:#c8dff0;padding:10px 14px;margin-bottom:14px;">
+    <p style="font-family:-apple-system,sans-serif;font-size:0.8rem;color:#1a4a6b;margin:0;">
+      Schedule changes take effect immediately — no restart needed.
     </p>
   </div>
 
@@ -461,7 +513,6 @@
       ("Restart container",          "docker compose up -d --force-recreate"),
       ("View live logs",             "docker compose logs -f"),
       ("Run generation now (CLI)",   "docker compose exec newspapersync python -m app.main --now"),
-      ("Auth rmapi (first-time)",    "docker compose run --rm newspapersync rmapi"),
       ("Rebuild after code changes", "docker compose up -d --build"),
     ] %}
     <tr style="border-bottom:1px solid #eee;">
@@ -485,6 +536,15 @@
     r.addEventListener('change', function() {
       document.querySelectorAll('.theme-card').forEach(function(c) { c.classList.remove('theme-card-active'); });
       this.closest('label').querySelector('.theme-card').classList.add('theme-card-active');
+    });
+  });
+
+  // Show "Connecting…" while rmapi auth is in progress (takes a few seconds)
+  var rmapiForms = document.querySelectorAll('form[action="/settings/remarkable-auth"]');
+  rmapiForms.forEach(function(form) {
+    form.addEventListener('submit', function() {
+      var btn = form.querySelector('button[type=submit]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
     });
   });
 </script>

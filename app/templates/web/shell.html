@@ -92,7 +92,7 @@
       <label class="field-label">Command</label>
       <textarea name="command" id="new-command" rows="3" required
                 style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:3px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; font-size:0.85rem; resize:vertical;"
-                placeholder='docker ps --format "table {{.Names}}\t{{.Status}}"'></textarea>
+                placeholder='docker ps --format "table {% raw %}{{.Names}}\t{{.Status}}{% endraw %}"'></textarea>
     </div>
 
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">

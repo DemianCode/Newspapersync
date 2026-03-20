@@ -369,6 +369,57 @@ async def delete_feed(request: Request):
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 
+_RMAPI_TOKEN_PATH = Path("/root/.local/share/rmapi/authToken")
+
+
+def _rmapi_is_authenticated() -> bool:
+    return _RMAPI_TOKEN_PATH.exists()
+
+
+@app.post("/settings/remarkable-auth")
+async def remarkable_auth(request: Request):
+    """Exchange a reMarkable one-time code for an rmapi token via the web UI."""
+    import shutil
+    import subprocess
+    from urllib.parse import quote_plus
+
+    form = await request.form()
+    code = str(form.get("code", "")).strip()
+
+    if not code:
+        return RedirectResponse("/settings?remarkable_auth=error&msg=No+code+entered", status_code=303)
+
+    if not shutil.which("rmapi"):
+        return RedirectResponse("/settings?remarkable_auth=error&msg=rmapi+binary+not+found", status_code=303)
+
+    try:
+        # Feed the code then immediately send `exit` so the interactive shell closes.
+        proc = subprocess.run(
+            ["rmapi"],
+            input=f"{code}\nexit\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if _rmapi_is_authenticated():
+            return RedirectResponse("/settings?remarkable_auth=success", status_code=303)
+
+        output = (proc.stdout + proc.stderr).strip()
+        msg = quote_plus(output[:120]) if output else "Auth+failed+-+check+the+code+and+try+again"
+        return RedirectResponse(f"/settings?remarkable_auth=error&msg={msg}", status_code=303)
+    except subprocess.TimeoutExpired:
+        return RedirectResponse(
+            "/settings?remarkable_auth=error&msg=Timed+out+after+30s+-+check+network+connectivity",
+            status_code=303,
+        )
+    except Exception as exc:
+        from urllib.parse import quote_plus
+        return RedirectResponse(
+            f"/settings?remarkable_auth=error&msg={quote_plus(str(exc)[:120])}",
+            status_code=303,
+        )
+
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     # Read-only groups — require docker-compose.yml edits to change
@@ -447,6 +498,9 @@ async def settings_page(request: Request):
             "config": readonly_config,
             "appearance": _load_appearance(),
             "saved": "saved" in request.query_params,
+            "remarkable_authenticated": _rmapi_is_authenticated(),
+            "remarkable_auth": request.query_params.get("remarkable_auth"),
+            "remarkable_auth_msg": request.query_params.get("msg", ""),
         },
     )
 
