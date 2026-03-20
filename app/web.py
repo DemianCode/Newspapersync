@@ -369,11 +369,29 @@ async def delete_feed(request: Request):
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 
-_RMAPI_TOKEN_PATH = Path("/root/.local/share/rmapi/authToken")
+_RMAPI_DIR = Path("/root/.local/share/rmapi")
 
 
 def _rmapi_is_authenticated() -> bool:
-    return _RMAPI_TOKEN_PATH.exists()
+    """Check auth by running rmapi non-interactively — the only reliable method."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("rmapi"):
+        return False
+    try:
+        result = subprocess.run(
+            ["rmapi", "-ni", "ls", "/"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _rmapi_dir_has_files() -> bool:
+    """Quick file-existence check used for the status badge (no network call)."""
+    return _RMAPI_DIR.exists() and any(_RMAPI_DIR.iterdir())
 
 
 @app.post("/settings/remarkable-auth")
@@ -393,7 +411,9 @@ async def remarkable_auth(request: Request):
         return RedirectResponse("/settings?remarkable_auth=error&msg=rmapi+binary+not+found", status_code=303)
 
     try:
-        # Feed the code then immediately send `exit` so the interactive shell closes.
+        # Send the one-time code then `exit` to close the interactive shell.
+        # rmapi reads the code line, authenticates with reMarkable, saves the
+        # token, opens its shell, then receives `exit` and quits cleanly.
         proc = subprocess.run(
             ["rmapi"],
             input=f"{code}\nexit\n",
@@ -401,10 +421,17 @@ async def remarkable_auth(request: Request):
             text=True,
             timeout=30,
         )
-        if _rmapi_is_authenticated():
+        # Verify auth actually works via a non-interactive rmapi command,
+        # rather than relying on a specific token filename.
+        verify = subprocess.run(
+            ["rmapi", "-ni", "ls", "/"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if verify.returncode == 0:
             return RedirectResponse("/settings?remarkable_auth=success", status_code=303)
 
-        output = (proc.stdout + proc.stderr).strip()
+        # Auth failed — surface whatever rmapi printed
+        output = (proc.stdout + proc.stderr + verify.stdout + verify.stderr).strip()
         msg = quote_plus(output[:120]) if output else "Auth+failed+-+check+the+code+and+try+again"
         return RedirectResponse(f"/settings?remarkable_auth=error&msg={msg}", status_code=303)
     except subprocess.TimeoutExpired:
@@ -498,7 +525,7 @@ async def settings_page(request: Request):
             "config": readonly_config,
             "appearance": _load_appearance(),
             "saved": "saved" in request.query_params,
-            "remarkable_authenticated": _rmapi_is_authenticated(),
+            "remarkable_authenticated": _rmapi_dir_has_files(),
             "remarkable_auth": request.query_params.get("remarkable_auth"),
             "remarkable_auth_msg": request.query_params.get("msg", ""),
         },
