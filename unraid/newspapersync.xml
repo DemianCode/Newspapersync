@@ -1,0 +1,503 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>NewspaSync</Name>
+  <Repository>ghcr.io/demiancode/newspapersync:latest</Repository>
+  <Registry>https://github.com/DemianCode/Newspapersync/pkgs/container/newspapersync</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Project>https://github.com/DemianCode/Newspapersync</Project>
+  <Overview>
+    Self-hosted daily newspaper generator for reMarkable tablets.
+    Generates a PDF newspaper from weather, RSS news, tasks (TickTick), Wikipedia,
+    Wikiquote, Word of the Day, learning curricula, shell snippets, and more.
+    Delivers to your reMarkable on a schedule, or sends by email.
+    Web UI at port 3050 for configuration, manual runs, and PDF preview.
+  </Overview>
+  <Category>Tools:</Category>
+  <WebUI>http://[IP]:[PORT:3050]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/DemianCode/Newspapersync/main/unraid/newspapersync.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/DemianCode/Newspapersync/main/unraid/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+
+  <!-- ── Ports ─────────────────────────────────────────────────────────────── -->
+  <Config
+    Name="Web UI Port"
+    Target="3050"
+    Default="3050"
+    Mode="tcp"
+    Description="NewspaSync web interface — dashboard, settings, PDF preview"
+    Type="Port"
+    Display="always"
+    Required="true"
+    Mask="false">3050</Config>
+
+  <!-- ── Volumes ───────────────────────────────────────────────────────────── -->
+  <Config
+    Name="Config"
+    Target="/app/config"
+    Default="/mnt/user/appdata/NewspaSync/config"
+    Mode="rw"
+    Description="Configuration files: RSS sources, editions, appearance, learning curricula"
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/NewspaSync/config</Config>
+
+  <Config
+    Name="Output (PDFs)"
+    Target="/app/output"
+    Default="/mnt/user/appdata/NewspaSync/output"
+    Mode="rw"
+    Description="Generated PDF newspapers"
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/NewspaSync/output</Config>
+
+  <Config
+    Name="reMarkable Auth Token"
+    Target="/root/.local/share/rmapi"
+    Default="/mnt/user/appdata/NewspaSync/rmapi"
+    Mode="rw"
+    Description="reMarkable authentication token — run auth once then this persists across restarts"
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/NewspaSync/rmapi</Config>
+
+  <!-- ── Core ──────────────────────────────────────────────────────────────── -->
+  <Config
+    Name="Timezone"
+    Target="TZ"
+    Default="America/New_York"
+    Mode=""
+    Description="Your local timezone. Examples: America/New_York, Europe/London, Australia/Sydney, Asia/Tokyo"
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false">America/New_York</Config>
+
+  <Config
+    Name="Schedule Time"
+    Target="SCHEDULE_TIME"
+    Default="06:00"
+    Mode=""
+    Description="Daily time to generate the newspaper (HH:MM, 24-hour format). Change this in the web UI without restarting."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false">06:00</Config>
+
+  <Config
+    Name="Run On Start"
+    Target="RUN_ON_START"
+    Default="false"
+    Mode=""
+    Description="Generate a newspaper immediately when the container starts (true/false)"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="Web UI Enabled"
+    Target="WEB_ENABLED"
+    Default="true"
+    Mode=""
+    Description="Enable the web interface (true/false). Keep true unless running headless."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <!-- ── reMarkable ────────────────────────────────────────────────────────── -->
+  <Config
+    Name="reMarkable Sync Method"
+    Target="REMARKABLE_SYNC_METHOD"
+    Default="rmapi"
+    Mode=""
+    Description="How to deliver to reMarkable: rmapi (USB/WiFi sync, recommended) or email (requires REMARKABLE_DEVICE_EMAIL)"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">rmapi</Config>
+
+  <Config
+    Name="reMarkable Folder"
+    Target="REMARKABLE_FOLDER"
+    Default="Newspaper"
+    Mode=""
+    Description="Folder on reMarkable where newspapers are saved"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">Newspaper</Config>
+
+  <Config
+    Name="reMarkable Archive Folder"
+    Target="REMARKABLE_ARCHIVE_FOLDER"
+    Default="Newspaper/Archive"
+    Mode=""
+    Description="Folder on reMarkable for archived (older) newspapers"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">Newspaper/Archive</Config>
+
+  <Config
+    Name="reMarkable Archive Keep Days"
+    Target="REMARKABLE_ARCHIVE_KEEP_DAYS"
+    Default="30"
+    Mode=""
+    Description="Number of days to keep archived newspapers before deleting from reMarkable"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">30</Config>
+
+  <Config
+    Name="reMarkable Device Email"
+    Target="REMARKABLE_DEVICE_EMAIL"
+    Default=""
+    Mode=""
+    Description="Your @mail.remarkable.com address. Only needed if REMARKABLE_SYNC_METHOD=email."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"></Config>
+
+  <!-- ── Weather ───────────────────────────────────────────────────────────── -->
+  <Config
+    Name="Weather Enabled"
+    Target="WEATHER_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Show a weather forecast in the newspaper (true/false)"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="Weather Latitude"
+    Target="WEATHER_LAT"
+    Default=""
+    Mode=""
+    Description="Your location latitude for weather (e.g. 40.7128). Find at latlong.net."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Weather Longitude"
+    Target="WEATHER_LON"
+    Default=""
+    Mode=""
+    Description="Your location longitude for weather (e.g. -74.0060). Find at latlong.net."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Weather Location Name"
+    Target="WEATHER_LOCATION_NAME"
+    Default=""
+    Mode=""
+    Description="Display name shown in the newspaper for your location (e.g. New York)"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Weather Units"
+    Target="WEATHER_UNITS"
+    Default="celsius"
+    Mode=""
+    Description="Temperature units: celsius or fahrenheit"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">celsius</Config>
+
+  <!-- ── SMTP (shared by reMarkable email method and PDF email copy) ─────── -->
+  <Config
+    Name="SMTP Host"
+    Target="SMTP_HOST"
+    Default=""
+    Mode=""
+    Description="SMTP server for outbound email (e.g. smtp.gmail.com). Used by both reMarkable email delivery and PDF email copy."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="SMTP Port"
+    Target="SMTP_PORT"
+    Default="587"
+    Mode=""
+    Description="SMTP server port. 587 for STARTTLS (recommended), 465 for SSL."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">587</Config>
+
+  <Config
+    Name="SMTP Username"
+    Target="SMTP_USERNAME"
+    Default=""
+    Mode=""
+    Description="SMTP login username / from address (usually your email address)"
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="SMTP Password"
+    Target="SMTP_PASSWORD"
+    Default=""
+    Mode=""
+    Description="SMTP password or app-specific password. For Gmail: create an App Password at myaccount.google.com/apppasswords."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="true"></Config>
+
+  <!-- ── PDF Email Delivery ────────────────────────────────────────────────── -->
+  <Config
+    Name="PDF Email Enabled"
+    Target="PDF_EMAIL_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Send the generated PDF to an email inbox after each run (true/false). Requires SMTP credentials above."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="PDF Email Recipient"
+    Target="PDF_EMAIL_RECIPIENT"
+    Default=""
+    Mode=""
+    Description="Email address(es) to send the newspaper PDF to. Separate multiple addresses with commas."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false"></Config>
+
+  <!-- ── Email Inbox ───────────────────────────────────────────────────────── -->
+  <Config
+    Name="Email Inbox Enabled"
+    Target="EMAIL_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Show your email inbox summary in the newspaper (true/false)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="Email IMAP Host"
+    Target="EMAIL_IMAP_HOST"
+    Default="imap.gmail.com"
+    Mode=""
+    Description="IMAP server hostname for reading inbox emails"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">imap.gmail.com</Config>
+
+  <Config
+    Name="Email IMAP Port"
+    Target="EMAIL_IMAP_PORT"
+    Default="993"
+    Mode=""
+    Description="IMAP server port (993 for SSL)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">993</Config>
+
+  <Config
+    Name="Email Username"
+    Target="EMAIL_USERNAME"
+    Default=""
+    Mode=""
+    Description="Email address for IMAP login"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Email Password"
+    Target="EMAIL_PASSWORD"
+    Default=""
+    Mode=""
+    Description="Email password or app-specific password for IMAP access"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"></Config>
+
+  <Config
+    Name="Email Max Items"
+    Target="EMAIL_MAX_ITEMS"
+    Default="10"
+    Mode=""
+    Description="Maximum number of emails to include in the newspaper"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">10</Config>
+
+  <!-- ── TickTick ──────────────────────────────────────────────────────────── -->
+  <Config
+    Name="TickTick Enabled"
+    Target="TICKTICK_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Show TickTick tasks in the newspaper (true/false). Requires Client ID and Secret below."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="TickTick Client ID"
+    Target="TICKTICK_CLIENT_ID"
+    Default=""
+    Mode=""
+    Description="TickTick OAuth Client ID. Create an app at developer.ticktick.com."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="TickTick Client Secret"
+    Target="TICKTICK_CLIENT_SECRET"
+    Default=""
+    Mode=""
+    Description="TickTick OAuth Client Secret"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"></Config>
+
+  <Config
+    Name="TickTick Show Overdue"
+    Target="TICKTICK_SHOW_OVERDUE"
+    Default="true"
+    Mode=""
+    Description="Include overdue tasks alongside today's tasks (true/false)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <!-- ── AI Summaries ──────────────────────────────────────────────────────── -->
+  <Config
+    Name="AI Summaries Enabled"
+    Target="AI_SUMMARY_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Generate AI summaries for news articles (true/false). Requires AI API Key below."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="AI API Key"
+    Target="AI_API_KEY"
+    Default=""
+    Mode=""
+    Description="OpenAI API key, or key for a compatible API (Groq, Together, etc.)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"></Config>
+
+  <Config
+    Name="AI API Base URL"
+    Target="AI_API_BASE_URL"
+    Default="https://api.openai.com/v1"
+    Mode=""
+    Description="API base URL. Change for local models: http://your-ollama-ip:11434/v1"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">https://api.openai.com/v1</Config>
+
+  <Config
+    Name="AI Model"
+    Target="AI_MODEL"
+    Default="gpt-4o-mini"
+    Mode=""
+    Description="Model name to use for article summaries (e.g. gpt-4o-mini, llama3, mistral)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">gpt-4o-mini</Config>
+
+  <!-- ── RSS / News ────────────────────────────────────────────────────────── -->
+  <Config
+    Name="RSS Enabled"
+    Target="RSS_ENABLED"
+    Default="true"
+    Mode=""
+    Description="Include RSS news feeds in the newspaper (true/false). Configure feeds in the web UI."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <Config
+    Name="RSS Max Articles Per Feed"
+    Target="RSS_MAX_ARTICLES_PER_FEED"
+    Default="5"
+    Mode=""
+    Description="Maximum number of articles to include per RSS feed"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">5</Config>
+
+  <!-- ── Sudoku ────────────────────────────────────────────────────────────── -->
+  <Config
+    Name="Sudoku Enabled"
+    Target="SUDOKU_ENABLED"
+    Default="false"
+    Mode=""
+    Description="Include a Sudoku puzzle in the newspaper (true/false)"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="Sudoku Difficulty"
+    Target="SUDOKU_DIFFICULTY"
+    Default="medium"
+    Mode=""
+    Description="Sudoku difficulty: easy, medium, or hard"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">medium</Config>
+
+</Container>
