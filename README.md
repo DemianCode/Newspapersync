@@ -10,10 +10,16 @@ Runs as a single Docker container with a web UI for managing everything.
 - **Web UI** — dashboard, PDF preview, RSS editor at `http://localhost:3050`
 - **RSS feeds** — configurable feeds via the web UI or `config/sources.yml`
 - **Weather** — current conditions + hourly forecast via Open-Meteo (no API key needed)
+- **Wikipedia** — Article of the Day, with graceful error display if unavailable
+- **Wikiquote** — Quote of the Day from Wikiquote
+- **Word of the Day** — daily word and definition from Merriam-Webster
 - **TickTick** — tasks due today and overdue
 - **Email** — unread email summary via IMAP
+- **Sudoku** — daily puzzle at easy / medium / hard difficulty
 - **AI summaries** — optional per-article summaries via any OpenAI-compatible API (or local Ollama)
 - **reMarkable sync** — uploads today's PDF, archives previous days, prunes old archives
+- **PDF email delivery** — send the newspaper to any inbox after each run (uses the same SMTP credentials)
+- **Editions** — multiple named newspaper configurations, each with its own schedule, source selection, delivery target (reMarkable, email, or both), and appearance settings. Change schedules live without restarting.
 - **WeasyPrint PDF** — clean newspaper layout, A5 (reMarkable native) or A4
 - **Learning Feeds** — sequential lesson delivery from uploaded JSON curricula, with progress tracking
 - **Shell Snippets** — run shell commands at build time; output appears in your PDF
@@ -22,8 +28,119 @@ Runs as a single Docker container with a web UI for managing everything.
 
 ## Deployment
 
+- [Unraid — Community Applications (recommended)](#unraid--community-applications-recommended)
+- [Unraid — SSH / compose (alternative)](#unraid--ssh--compose-alternative)
 - [Local (Linux / Mac / WSL2)](#local-linux--mac--wsl2)
-- [Unraid](#unraid)
+
+---
+
+## Unraid — Community Applications (recommended)
+
+This is the easiest way to install on Unraid. All configuration is done through the Unraid Docker GUI — no SSH or compose files required.
+
+### Step 1 — Add the template repository
+
+In Unraid: **Apps** → **Settings** → scroll to **Template Repositories** → add:
+
+```
+https://raw.githubusercontent.com/DemianCode/Newspapersync/main/unraid/
+```
+
+Click **Save**.
+
+### Step 2 — Install NewspaSync
+
+Go to **Apps** and search for **NewspaSync**. Click **Install**.
+
+Fill in the fields on the template screen. The most important ones:
+
+| Field | Notes |
+|---|---|
+| **Timezone** | e.g. `America/New_York`, `Europe/London`, `Australia/Sydney` |
+| **Schedule Time** | HH:MM 24h format — when to generate each day |
+| **Weather Lat / Lon** | Find your coordinates at [latlong.net](https://www.latlong.net) |
+| **SMTP fields** | Only needed if you want PDF email delivery or reMarkable email sync |
+| **Secrets** (passwords) | Masked in the UI; stored in Unraid's Docker config |
+
+Everything else can be left at the default and changed later. Click **Apply**.
+
+### Step 3 — Auth reMarkable (one-time, required)
+
+Once the container is running, open an Unraid terminal and run:
+
+```bash
+docker exec -it NewspaSync rmapi
+```
+
+At the `[/]>` prompt:
+1. Visit `https://my.remarkable.com/device/browser/connect`, log in, and copy the one-time code
+2. Type `exit` and press Enter — do **not** Ctrl+C
+
+The token is saved to your appdata volume and persists across restarts and updates.
+
+### Step 4 — Auth TickTick (if enabled)
+
+```bash
+docker exec -it NewspaSync python -m app.sources.ticktick --auth
+```
+
+### Updating
+
+In Unraid Docker tab, click **Check for Updates** on the NewspaSync container, then **Update**. Your config, PDFs, and auth tokens (in `/mnt/user/appdata/NewspaSync/`) are never touched by an update.
+
+### How the image is published
+
+A GitHub Actions workflow (`.github/workflows/docker-publish.yml`) automatically builds and pushes `ghcr.io/demiancode/newspapersync:latest` to the GitHub Container Registry on every push to `main`. No manual intervention needed after the initial setup.
+
+---
+
+## Unraid — SSH / compose (alternative)
+
+If you prefer to manage the container via compose files directly:
+
+### Step 1 — SSH and clone
+
+```bash
+mkdir -p /mnt/user/appdata/newspapersync
+cd /mnt/user/appdata/newspapersync
+git clone https://github.com/DemianCode/Newspapersync.git .
+```
+
+### Step 2 — Configure secrets
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+### Step 3 — Configure settings
+
+```bash
+nano docker-compose.yml
+```
+
+Set your timezone, weather coordinates, and schedule time.
+
+### Step 4 — Build and start
+
+```bash
+./redeploy.sh
+```
+
+Web UI will be at `http://<unraid-ip>:3050`.
+
+### Step 5 — Auth reMarkable
+
+```bash
+./auth-remarkable.sh
+```
+
+### Updating
+
+```bash
+git pull
+./redeploy.sh
+```
 
 ---
 
@@ -188,14 +305,14 @@ Visit `http://localhost:3050` (local) or `http://<unraid-ip>:3050` (Unraid) afte
 
 | Page | Path | What it does |
 |---|---|---|
-| Dashboard | `/` | View the latest PDF, trigger a manual run, see run history |
+| Dashboard | `/` | View the latest PDF, trigger a manual run, see run history (per-edition in editions mode) |
 | RSS Sources | `/sources` | Add, edit, and delete RSS feeds — saves immediately |
 | Learning | `/learning` | Upload curricula and track lesson progress per course |
 | Shell | `/shell` | Define shell commands whose output appears in the PDF |
-| Settings | `/settings` | View all current configuration and common commands |
+| Editions | `/editions` | Create and manage named newspaper configurations with per-edition schedules and delivery |
+| Settings | `/settings` | Edit weather, schedule, email, appearance and more — no restart needed |
 
-Changes to RSS sources take effect on the next generation run (no restart needed).
-Changes to settings in `docker-compose.yml` require a container restart (`./redeploy.sh`).
+Changes to RSS sources, settings, schedules, and editions all take effect immediately without restarting the container.
 
 ---
 
@@ -381,16 +498,24 @@ Since the container is isolated on a local self-hosted server, the overall risk 
 .
 ├── config/
 │   ├── sources.yml              # RSS feeds (editable via web UI or directly)
+│   ├── settings.yml             # Editable settings saved from the web UI
+│   ├── appearance.yml           # PDF theme, font size, paper size, columns
+│   ├── editions.yml             # Named edition configurations (auto-created on first edition)
 │   ├── learning_feeds.yml       # Learning feed state (auto-created)
 │   ├── shell_snippets.yml       # Shell snippet definitions (auto-created)
 │   └── curricula/               # Uploaded curriculum JSON files (auto-created)
 │       └── <feed-id>.json
 ├── output/                      # Generated PDFs
-│   └── newspaper-YYYY-MM-DD.pdf
+│   ├── newspaper-YYYY-MM-DD.pdf              # single-edition naming
+│   └── newspaper-morning-YYYY-MM-DD.pdf      # editions naming (includes edition ID)
 ├── rmapi/                       # rmapi auth state (auto-created, gitignored)
-├── .env                         # Your secrets (gitignored)
-├── docker-compose.yml           # All settings
-├── redeploy.sh                  # Rebuild and restart the container
+├── .env                         # Your secrets (gitignored, local setup only)
+├── docker-compose.yml           # All settings (local/SSH setup)
+├── unraid/
+│   └── newspapersync.xml        # Unraid Community Applications template
+├── .github/workflows/
+│   └── docker-publish.yml       # Auto-builds and pushes image to GHCR on push to main
+├── redeploy.sh                  # Rebuild and restart the container (local/SSH setup)
 └── auth-remarkable.sh           # One-time reMarkable auth helper
 ```
 
@@ -409,32 +534,36 @@ Newspaper/
 
 ## Configuration reference
 
-All non-secret settings live in `docker-compose.yml`. Full inline comments are there.
+Non-secret settings can be edited from the **Settings** page in the web UI (saved to `config/settings.yml`), or set as environment variables in `docker-compose.yml` / the Unraid template. Environment variables take precedence over the YAML file.
 
 | Variable | Default | Description |
 |---|---|---|
 | `WEB_ENABLED` | `true` | Enable the web UI on port 3050 |
 | `WEB_PORT` | `3050` | Web UI port |
-| `SCHEDULE_TIME` | `06:00` | Daily generation time (HH:MM, container local time) |
+| `SCHEDULE_TIME` | `06:00` | Daily generation time (HH:MM, container local time). Can be changed live from Settings. |
 | `RUN_ON_START` | `false` | Also run immediately when the container starts |
 | `TZ` | `UTC` | Container timezone |
-| `REMARKABLE_SYNC_METHOD` | `rmapi` | `rmapi` only (email delivery not supported on newer devices) |
+| `REMARKABLE_SYNC_METHOD` | `rmapi` | `rmapi` (recommended) or `email` |
 | `REMARKABLE_FOLDER` | `Newspaper` | Upload folder on reMarkable |
 | `REMARKABLE_ARCHIVE_FOLDER` | `Newspaper/Archive` | Archive folder (blank = delete old files) |
 | `REMARKABLE_ARCHIVE_KEEP_DAYS` | `30` | Days to keep archived PDFs (0 = keep forever) |
-| `WEATHER_ENABLED` | `true` | Enable weather section |
+| `WEATHER_ENABLED` | `false` | Enable weather section |
 | `WEATHER_LAT` / `WEATHER_LON` | — | Your coordinates |
 | `WEATHER_UNITS` | `celsius` | `celsius` or `fahrenheit` |
+| `WIKIPEDIA_ENABLED` | `false` | Show Wikipedia Article of the Day |
+| `WIKIQUOTE_DAILY_ENABLED` | `false` | Show Wikiquote Quote of the Day |
+| `WOTD_ENABLED` | `false` | Show Merriam-Webster Word of the Day |
+| `SUDOKU_ENABLED` | `false` | Include a Sudoku puzzle |
+| `SUDOKU_DIFFICULTY` | `medium` | `easy`, `medium`, or `hard` |
 | `EMAIL_ENABLED` | `false` | Enable email inbox summary section |
 | `TICKTICK_ENABLED` | `false` | Enable TickTick tasks section |
 | `RSS_ENABLED` | `true` | Enable RSS news section |
 | `RSS_MAX_ARTICLES_PER_FEED` | `5` | Max articles per feed |
+| `PDF_EMAIL_ENABLED` | `false` | Send the PDF to an email inbox after each run |
+| `PDF_EMAIL_RECIPIENT` | — | Comma-separated recipient address(es) for PDF email delivery |
 | `AI_SUMMARY_ENABLED` | `false` | Enable AI article summaries |
 | `AI_API_BASE_URL` | OpenAI | Swap for local Ollama: `http://ollama:11434/v1` |
 | `AI_MODEL` | `gpt-4o-mini` | Model name |
-| `PDF_THEME` | `light` | `light` or `dark` |
-| `PDF_PAPER_SIZE` | `A5` | `A5` (reMarkable native) or `A4` |
-| `PDF_COLUMNS` | `1` | News columns: `1` or `2` |
 
 ---
 
