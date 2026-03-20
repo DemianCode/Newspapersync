@@ -162,6 +162,41 @@
     Required="false"
     Mask="false">30</Config>
 
+  <!-- These three must match docker-compose.yml to ensure rmapi stores its token
+       in the mounted volume and uses the correct reMarkable sync API version. -->
+  <Config
+    Name="XDG Data Home"
+    Target="XDG_DATA_HOME"
+    Default="/root/.local/share"
+    Mode=""
+    Description="XDG data directory — must stay as /root/.local/share so rmapi writes its token into the mounted volume"
+    Type="Variable"
+    Display="advanced"
+    Required="true"
+    Mask="false">/root/.local/share</Config>
+
+  <Config
+    Name="XDG Config Home"
+    Target="XDG_CONFIG_HOME"
+    Default="/root/.local/share"
+    Mode=""
+    Description="XDG config directory — must stay as /root/.local/share so rmapi finds its token in the mounted volume"
+    Type="Variable"
+    Display="advanced"
+    Required="true"
+    Mask="false">/root/.local/share</Config>
+
+  <Config
+    Name="rmapi Schema Version"
+    Target="RMAPI_FORCE_SCHEMA_VERSION"
+    Default="4"
+    Mode=""
+    Description="Forces rmapi to use the v4 reMarkable sync protocol. Required for reMarkable 2 and newer."
+    Type="Variable"
+    Display="advanced"
+    Required="true"
+    Mask="false">4</Config>
+
   <Config
     Name="reMarkable Device Email"
     Target="REMARKABLE_DEVICE_EMAIL"
