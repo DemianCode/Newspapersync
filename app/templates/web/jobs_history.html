@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Job History — NewspaSync{% endblock %}
+
+{% block content %}
+
+<div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; padding-bottom: 10px; border-bottom: 2px solid #1a1a1a;">
+  <h1 style="font-size: 1.4rem; letter-spacing: 0.04em; text-transform: uppercase;">Job History</h1>
+  <a href="/jobs" class="btn btn-ghost btn-sm">&#8592; Back to Jobs</a>
+</div>
+
+<!-- ── Summary bar ── -->
+<div class="card" style="padding: 14px 24px;">
+  <div style="display: flex; gap: 32px; align-items: center; flex-wrap: wrap; font-family: -apple-system, sans-serif; font-size: 0.85rem; color: #555;">
+    <span><strong style="color: #1a1a1a; font-size: 1.1rem;">{{ total }}</strong> jobs stored</span>
+    <span><strong style="color: #1a1a1a;">{{ jobs | selectattr('appeared_in_newspaper') | list | length }}</strong> appeared in newspaper</span>
+    <span><strong style="color: #1a1a1a;">{{ jobs | rejectattr('appeared_in_newspaper') | list | length }}</strong> below rating threshold</span>
+    {% if dates %}
+    <span>Oldest: <strong style="color: #1a1a1a;">{{ dates[-1] }}</strong></span>
+    {% endif %}
+  </div>
+</div>
+
+{% if total == 0 %}
+<div class="card" style="text-align: center; padding: 48px 24px;">
+  <p style="font-size: 1.1rem; color: #888; font-family: -apple-system, sans-serif;">No job history yet.</p>
+  <p class="text-muted" style="margin-top: 8px;">History is populated automatically each time the newspaper pipeline runs with jobs enabled.</p>
+</div>
+{% else %}
+
+<!-- ── Filters ── -->
+<div class="card" style="padding: 14px 24px;">
+  <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-family: -apple-system, sans-serif; font-size: 0.85rem;">
+    <span style="font-weight: 600; color: #555; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem;">Filter:</span>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <label for="filter-date" style="color: #666; font-size: 0.82rem;">Date</label>
+      <select id="filter-date" onchange="applyFilters()"
+              style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.82rem; background: white; color: #1a1a1a;">
+        <option value="">All dates</option>
+        {% for d in dates %}
+        <option value="{{ d }}">{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <label for="filter-newspaper" style="color: #666; font-size: 0.82rem;">In newspaper</label>
+      <select id="filter-newspaper" onchange="applyFilters()"
+              style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.82rem; background: white; color: #1a1a1a;">
+        <option value="">All</option>
+        <option value="yes">Yes</option>
+        <option value="no">Below threshold</option>
+      </select>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <label for="filter-source" style="color: #666; font-size: 0.82rem;">Source</label>
+      <select id="filter-source" onchange="applyFilters()"
+              style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.82rem; background: white; color: #1a1a1a;">
+        <option value="">All sources</option>
+        {% for src in jobs | map(attribute='source') | unique | sort %}
+        <option value="{{ src }}">{{ src }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <input type="text" id="filter-search" oninput="applyFilters()"
+           placeholder="Search title / company…"
+           style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.82rem; width: 200px;">
+
+    <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+    <span id="visible-count" style="color: #888; font-size: 0.82rem; margin-left: auto;"></span>
+  </div>
+</div>
+
+<!-- ── Job table ── -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  <table id="history-table" style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.84rem;">
+    <thead>
+      <tr style="background: #f8f8f8; border-bottom: 2px solid #ddd;">
+        <th style="text-align: left; padding: 10px 16px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666; white-space: nowrap;">Date Found</th>
+        <th style="text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Job Title</th>
+        <th style="text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Company</th>
+        <th style="text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Location</th>
+        <th style="text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Salary</th>
+        <th style="text-align: center; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Rating</th>
+        <th style="text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Source</th>
+        <th style="text-align: center; padding: 10px 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #666;">Newspaper</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr class="job-row"
+          data-date="{{ job.date_found | default('') }}"
+          data-source="{{ job.source | default('') }}"
+          data-newspaper="{{ 'yes' if job.appeared_in_newspaper else 'no' }}"
+          data-searchtext="{{ (job.title ~ ' ' ~ job.company) | lower }}"
+          style="border-bottom: 1px solid #f0f0f0; {% if not job.appeared_in_newspaper %}color: #999;{% endif %}">
+
+        <td style="padding: 9px 16px; white-space: nowrap; font-size: 0.8rem; color: #888;">{{ job.date_found | default('—') }}</td>
+
+        <td style="padding: 9px 12px; max-width: 260px;">
+          <a href="{{ job.url }}" target="_blank" rel="noopener"
+             style="color: {% if job.appeared_in_newspaper %}#1a1a1a{% else %}#999{% endif %}; text-decoration: none; font-weight: {% if job.appeared_in_newspaper %}600{% else %}400{% endif %};"
+             title="{{ job.url }}">{{ job.title | default('(no title)') }}</a>
+          {% if job.description %}
+          <div style="font-size: 0.76rem; color: #aaa; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">
+            {{ job.description[:120] }}…
+          </div>
+          {% endif %}
+        </td>
+
+        <td style="padding: 9px 12px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis;">
+          {{ job.company | default('—') }}
+        </td>
+
+        <td style="padding: 9px 12px; white-space: nowrap; font-size: 0.8rem; color: #666;">
+          {{ job.location | default('—') }}
+        </td>
+
+        <td style="padding: 9px 12px; white-space: nowrap; font-size: 0.8rem; color: #555; font-style: {% if job.salary %}normal{% else %}italic{% endif %};">
+          {% if job.salary %}{{ job.salary }}{% else %}<span style="color: #bbb;">n/a</span>{% endif %}
+        </td>
+
+        <td style="padding: 9px 12px; text-align: center; white-space: nowrap;">
+          <span title="{{ job.rating }} / 5" style="font-size: 0.9rem; {% if job.appeared_in_newspaper %}color: #c8860a;{% else %}color: #ccc;{% endif %}">
+            {{ job.rating_stars | default('☆☆☆☆☆') }}
+          </span>
+          <div style="font-size: 0.7rem; color: #aaa;">{{ job.rating | default(0) }}</div>
+        </td>
+
+        <td style="padding: 9px 12px; font-size: 0.78rem; color: #888; white-space: nowrap;">{{ job.source | default('—') }}</td>
+
+        <td style="padding: 9px 12px; text-align: center;">
+          {% if job.appeared_in_newspaper %}
+          <span class="badge badge-success" style="font-size: 0.65rem;">Yes</span>
+          {% else %}
+          <span class="badge badge-idle" style="font-size: 0.65rem;">No</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div id="no-results" style="display: none; text-align: center; padding: 32px; color: #aaa; font-family: -apple-system, sans-serif;">
+    No jobs match the current filters.
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+  const filterDate  = document.getElementById('filter-date').value;
+  const filterNews  = document.getElementById('filter-newspaper').value;
+  const filterSrc   = document.getElementById('filter-source').value;
+  const filterText  = document.getElementById('filter-search').value.toLowerCase().trim();
+
+  const rows = document.querySelectorAll('.job-row');
+  let visible = 0;
+
+  rows.forEach(row => {
+    const dateMatch = !filterDate || row.dataset.date === filterDate;
+    const newsMatch = !filterNews || row.dataset.newspaper === filterNews;
+    const srcMatch  = !filterSrc  || row.dataset.source === filterSrc;
+    const textMatch = !filterText || row.dataset.searchtext.includes(filterText);
+
+    if (dateMatch && newsMatch && srcMatch && textMatch) {
+      row.style.display = '';
+      visible++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  const counter = document.getElementById('visible-count');
+  counter.textContent = visible + ' of {{ total }} shown';
+
+  document.getElementById('no-results').style.display = visible === 0 ? '' : 'none';
+}
+
+function clearFilters() {
+  document.getElementById('filter-date').value = '';
+  document.getElementById('filter-newspaper').value = '';
+  document.getElementById('filter-source').value = '';
+  document.getElementById('filter-search').value = '';
+  applyFilters();
+}
+
+// Initialise count on load
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('visible-count').textContent = '{{ total }} of {{ total }} shown';
+});
+</script>
+{% endblock %}

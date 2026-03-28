@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 _CONFIG_PATH = Path("/app/config/jobs.yml")
 _SEEN_PATH = Path("/app/config/jobs_seen.json")
+_HISTORY_PATH = Path("/app/config/jobs_history.json")
 
 _DEFAULT_CONFIG: dict = {
     "enabled": False,
@@ -70,9 +71,11 @@ def fetch() -> list[dict]:
         return []
 
     seen = _load_seen()
+    history = _load_history()
     criteria = config.get("rating_criteria", {})
     min_rating = float(config.get("min_rating", 2.0))
     max_jobs = int(config.get("max_jobs_per_edition", 10))
+    max_age_days = int(config.get("seen_max_age_days", 30))
 
     raw_jobs: list[dict] = []
     for search in searches:
@@ -100,11 +103,29 @@ def fetch() -> list[dict]:
             continue  # already reported
 
         rating = _score_job(job, criteria)
-        if rating < min_rating:
-            new_seen[job_id] = today  # track even if below threshold so we don't re-evaluate
+        in_newspaper = rating >= min_rating
+        new_seen[job_id] = today
+
+        # Archive every newly discovered job regardless of rating
+        history[job_id] = {
+            "id": job_id,
+            "title": job.get("title", ""),
+            "company": job.get("company", ""),
+            "location": job.get("location", ""),
+            "salary": job.get("salary", ""),
+            "description": job.get("description", "")[:500],
+            "url": job.get("url", ""),
+            "source": job.get("source_name", ""),
+            "rating": rating,
+            "rating_stars": _stars(rating),
+            "date_found": today,
+            "date_posted": job.get("date_posted", ""),
+            "appeared_in_newspaper": in_newspaper,
+        }
+
+        if not in_newspaper:
             continue
 
-        new_seen[job_id] = today
         blocks.append({
             "type": "job",
             "title": job["title"],
@@ -122,10 +143,12 @@ def fetch() -> list[dict]:
             },
         })
 
-    # Persist deduplication state
+    # Persist deduplication state and history archive
     seen.update(new_seen)
-    _purge_old(seen, int(config.get("seen_max_age_days", 30)))
+    _purge_old(seen, max_age_days)
     _save_seen(seen)
+    _purge_old_history(history, max_age_days)
+    _save_history(history)
 
     blocks.sort(key=lambda b: b["meta"]["rating"], reverse=True)
     result = blocks[:max_jobs]
@@ -305,3 +328,46 @@ def _purge_old(seen: dict[str, str], max_age_days: int) -> None:
             pass
     for job_id in to_delete:
         del seen[job_id]
+
+
+# ── History archive ───────────────────────────────────────────────────────────
+
+def load_history() -> dict[str, dict]:
+    """Return the full job history archive (job_id → job record).
+
+    Each record contains: id, title, company, location, salary, description,
+    url, source, rating, rating_stars, date_found, date_posted,
+    appeared_in_newspaper.
+    """
+    if not _HISTORY_PATH.exists():
+        return {}
+    try:
+        with open(_HISTORY_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _load_history() -> dict[str, dict]:
+    return load_history()
+
+
+def _save_history(history: dict[str, dict]) -> None:
+    _HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_HISTORY_PATH, "w") as f:
+        json.dump(history, f, indent=2)
+
+
+def _purge_old_history(history: dict[str, dict], max_age_days: int) -> None:
+    cutoff = datetime.now() - timedelta(days=max_age_days)
+    to_delete = []
+    for job_id, record in history.items():
+        date_str = record.get("date_found", "")
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            if dt < cutoff:
+                to_delete.append(job_id)
+        except ValueError:
+            pass
+    for job_id in to_delete:
+        del history[job_id]

@@ -1068,3 +1068,31 @@ async def update_jobs_criteria(request: Request):
 
     _save_jobs_config(config)
     return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.get("/jobs/history", response_class=HTMLResponse)
+async def jobs_history_page(request: Request):
+    from app.sources.jobs import load_history
+
+    history = load_history()
+
+    # Sort newest-first, then by rating descending within the same day
+    jobs_list = sorted(
+        history.values(),
+        key=lambda j: (j.get("date_found", ""), j.get("rating", 0)),
+        reverse=True,
+    )
+
+    # Unique dates for the date-filter dropdown
+    dates = sorted({j.get("date_found", "") for j in jobs_list if j.get("date_found")}, reverse=True)
+
+    return templates.TemplateResponse(
+        "jobs_history.html",
+        {
+            "request": request,
+            "active": "jobs",
+            "jobs": jobs_list,
+            "dates": dates,
+            "total": len(jobs_list),
+        },
+    )
