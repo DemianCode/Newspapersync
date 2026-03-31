@@ -390,6 +390,17 @@
   {% else %}
   .articles-grid { column-count: 1; }
   {% endif %}
+
+  /* ── Jobs section ───────────────────────────────────────────────── */
+  .job-item { padding: 4pt 0; border-bottom: 1px dotted #ddd; break-inside: avoid; }
+  .job-item:last-child { border-bottom: none; }
+  .job-header { display: flex; justify-content: space-between; align-items: baseline; gap: 4pt; }
+  .job-title { font-weight: bold; font-size: {{ config.font_size }}pt; flex: 1; }
+  .job-rating { font-size: {{ config.font_size - 1 }}pt; color: #555; white-space: nowrap; flex-shrink: 0; }
+  .job-meta { font-size: {{ config.font_size - 1.5 }}pt; color: #555; margin: 1pt 0; }
+  .job-salary { font-size: {{ config.font_size - 1.5 }}pt; color: #333; font-style: italic; }
+  .job-body { font-size: {{ config.font_size - 1 }}pt; margin: 2pt 0; line-height: 1.35; }
+  .job-url { font-size: {{ config.font_size - 2.5 }}pt; color: #777; word-break: break-all; margin-top: 1pt; }
 </style>
 </head>
 <body>
@@ -711,6 +722,24 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
+
+{% if job_blocks %}
+<div class="section-header" id="section-jobs">New Positions</div>
+{% for job in job_blocks %}
+<div class="job-item">
+  <div class="job-header">
+    <span class="job-title">{{ job.title }}</span>
+    <span class="job-rating">{{ job.meta.rating_stars }} {{ job.meta.rating }}/5</span>
+  </div>
+  <div class="job-meta">
+    {{ job.meta.company }}{% if job.meta.location %} &nbsp;·&nbsp; {{ job.meta.location }}{% endif %} &nbsp;·&nbsp; {{ job.source }}{% if job.published %} &nbsp;·&nbsp; {{ job.published }}{% endif %}
+  </div>
+  {% if job.meta.salary %}<div class="job-salary">{{ job.meta.salary }}</div>{% endif %}
+  {% if job.body %}<div class="job-body">{{ job.body }}</div>{% endif %}
+  <div class="job-url">{{ job.meta.url }}</div>
+</div>
+{% endfor %}
 {% endif %}
 
 <div class="footer">

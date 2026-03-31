@@ -897,3 +897,202 @@ async def test_shell_snippet(request: Request):
         return JSONResponse({"output": "", "error": "No command provided"})
     output, error = shell.run_test(command, timeout)
     return JSONResponse({"output": output, "error": error})
+
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+
+
+def _load_jobs_config() -> dict:
+    from app.sources.jobs import load_config
+    return load_config()
+
+
+def _save_jobs_config(config: dict) -> None:
+    from app.sources.jobs import save_config
+    save_config(config)
+
+
+@app.get("/jobs", response_class=HTMLResponse)
+async def jobs_page(request: Request):
+    config = _load_jobs_config()
+    return templates.TemplateResponse(
+        "jobs.html",
+        {
+            "request": request,
+            "active": "jobs",
+            "config": config,
+            "saved": "saved" in request.query_params,
+        },
+    )
+
+
+@app.post("/jobs/settings")
+async def update_jobs_settings(request: Request):
+    form = await request.form()
+    config = _load_jobs_config()
+    config["enabled"] = form.get("enabled") == "on"
+    try:
+        config["min_rating"] = float(form.get("min_rating") or 2.0)
+    except ValueError:
+        pass
+    try:
+        config["max_jobs_per_edition"] = int(form.get("max_jobs_per_edition") or 10)
+    except ValueError:
+        pass
+    try:
+        config["seen_max_age_days"] = int(form.get("seen_max_age_days") or 30)
+    except ValueError:
+        pass
+    _save_jobs_config(config)
+    return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.post("/jobs/search/add")
+async def add_job_search(request: Request):
+    form = await request.form()
+    source = str(form.get("source", "seek")).strip()
+    search: dict = {
+        "id": str(form.get("id", "")).strip() or f"{source}-{int(__import__('time').time())}",
+        "name": str(form.get("name", "")).strip() or source,
+        "source": source,
+        "keywords": str(form.get("keywords", "")).strip(),
+        "max_results": int(form.get("max_results") or 20),
+        "enabled": form.get("enabled") == "on",
+    }
+    if source == "seek":
+        search["location"] = str(form.get("location", "")).strip()
+    elif source == "workday":
+        search["workday_tenant"] = str(form.get("workday_tenant", "")).strip()
+        search["workday_instance"] = str(form.get("workday_instance", "")).strip()
+        search["workday_path"] = str(form.get("workday_path", "")).strip()
+    elif source == "rss":
+        search["rss_url"] = str(form.get("rss_url", "")).strip()
+
+    config = _load_jobs_config()
+    config.setdefault("searches", []).append(search)
+    _save_jobs_config(config)
+    return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.post("/jobs/search/update")
+async def update_job_search(request: Request):
+    form = await request.form()
+    try:
+        idx = int(form["index"])
+    except (KeyError, ValueError):
+        return RedirectResponse("/jobs", status_code=303)
+
+    config = _load_jobs_config()
+    searches = config.get("searches", [])
+    if not (0 <= idx < len(searches)):
+        return RedirectResponse("/jobs", status_code=303)
+
+    source = str(form.get("source", searches[idx].get("source", "seek"))).strip()
+    updated: dict = {
+        "id": str(form.get("id", searches[idx].get("id", ""))).strip(),
+        "name": str(form.get("name", "")).strip(),
+        "source": source,
+        "keywords": str(form.get("keywords", "")).strip(),
+        "max_results": int(form.get("max_results") or 20),
+        "enabled": form.get("enabled") == "on",
+    }
+    if source == "seek":
+        updated["location"] = str(form.get("location", "")).strip()
+    elif source == "workday":
+        updated["workday_tenant"] = str(form.get("workday_tenant", "")).strip()
+        updated["workday_instance"] = str(form.get("workday_instance", "")).strip()
+        updated["workday_path"] = str(form.get("workday_path", "")).strip()
+    elif source == "rss":
+        updated["rss_url"] = str(form.get("rss_url", "")).strip()
+
+    searches[idx] = updated
+    _save_jobs_config(config)
+    return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.post("/jobs/search/delete")
+async def delete_job_search(request: Request):
+    form = await request.form()
+    try:
+        idx = int(form["index"])
+    except (KeyError, ValueError):
+        return RedirectResponse("/jobs", status_code=303)
+    config = _load_jobs_config()
+    searches = config.get("searches", [])
+    if 0 <= idx < len(searches):
+        searches.pop(idx)
+    _save_jobs_config(config)
+    return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.post("/jobs/criteria/update")
+async def update_jobs_criteria(request: Request):
+    form = await request.form()
+    config = _load_jobs_config()
+    criteria = config.setdefault("rating_criteria", {})
+
+    # Keywords
+    kw = criteria.setdefault("keywords", {})
+    try:
+        kw["weight"] = int(form.get("kw_weight") or 3)
+    except ValueError:
+        pass
+    kw["title_terms"] = [t.strip() for t in str(form.get("title_terms", "")).split(",") if t.strip()]
+    kw["description_terms"] = [t.strip() for t in str(form.get("description_terms", "")).split(",") if t.strip()]
+
+    # Salary
+    sal = criteria.setdefault("salary", {})
+    try:
+        sal["weight"] = int(form.get("sal_weight") or 2)
+        sal["min_preferred"] = int(form.get("sal_min") or 0)
+        sal["max_preferred"] = int(form.get("sal_max") or 999999)
+    except ValueError:
+        pass
+
+    # Location
+    loc = criteria.setdefault("location", {})
+    try:
+        loc["weight"] = int(form.get("loc_weight") or 2)
+    except ValueError:
+        pass
+    loc["preferred"] = [t.strip() for t in str(form.get("loc_preferred", "")).split(",") if t.strip()]
+
+    # Company
+    comp = criteria.setdefault("company", {})
+    try:
+        comp["weight"] = int(form.get("comp_weight") or 1)
+    except ValueError:
+        pass
+    comp["preferred_keywords"] = [t.strip() for t in str(form.get("comp_preferred", "")).split(",") if t.strip()]
+    comp["avoid_keywords"] = [t.strip() for t in str(form.get("comp_avoid", "")).split(",") if t.strip()]
+
+    _save_jobs_config(config)
+    return RedirectResponse("/jobs?saved", status_code=303)
+
+
+@app.get("/jobs/history", response_class=HTMLResponse)
+async def jobs_history_page(request: Request):
+    from app.sources.jobs import load_history
+
+    history = load_history()
+
+    # Sort newest-first, then by rating descending within the same day
+    jobs_list = sorted(
+        history.values(),
+        key=lambda j: (j.get("date_found", ""), j.get("rating", 0)),
+        reverse=True,
+    )
+
+    # Unique dates for the date-filter dropdown
+    dates = sorted({j.get("date_found", "") for j in jobs_list if j.get("date_found")}, reverse=True)
+
+    return templates.TemplateResponse(
+        "jobs_history.html",
+        {
+            "request": request,
+            "active": "jobs",
+            "jobs": jobs_list,
+            "dates": dates,
+            "total": len(jobs_list),
+        },
+    )

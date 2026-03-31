@@ -1,0 +1,98 @@
+# ──────────────────────────────────────────────────────────────────
+# Job Alerts Configuration
+# Enable the feature by setting JOBS_ENABLED=true in your .env or
+# docker-compose.yml environment section.
+# ──────────────────────────────────────────────────────────────────
+
+enabled: false              # master switch (also requires JOBS_ENABLED=true env var)
+min_rating: 2.0             # only jobs rated >= this appear in the newspaper (0–5)
+max_jobs_per_edition: 10    # cap on how many jobs are shown per run
+seen_max_age_days: 30       # purge deduplication entries older than this many days
+
+# ── Searches ──────────────────────────────────────────────────────
+# Each search targets one job source. Supported sources:
+#   seek     — Seek.com.au (Australia's main job board)
+#   workday  — Any Workday-hosted careers portal (RMIT, UniMelb, etc.)
+#   rss      — Any job board that provides an RSS/Atom feed
+
+searches:
+  - id: "seek-example"
+    name: "Seek (edit me)"
+    source: "seek"
+    keywords: "data analyst"
+    location: "Melbourne VIC 3000"
+    max_results: 20
+    enabled: false
+
+  - id: "rmit-jobs"
+    name: "RMIT Careers"
+    source: "workday"
+    workday_tenant: "rmit"
+    workday_instance: "wd3"
+    workday_path: "RMIT_Careers"
+    keywords: ""           # leave blank for all jobs, or filter e.g. "research"
+    max_results: 20
+    enabled: false
+
+  - id: "unimelb-jobs"
+    name: "UniMelb Positions"
+    source: "workday"
+    workday_tenant: "unimelb"
+    workday_instance: "wd105"
+    workday_path: "UoM_External_Career"
+    keywords: ""
+    max_results: 20
+    enabled: false
+
+  # RSS example — uncomment and set a real feed URL to use
+  # - id: "gradconnection-rss"
+  #   name: "GradConnection"
+  #   source: "rss"
+  #   rss_url: "https://au.gradconnection.com/rss/jobs/"
+  #   keywords: ""          # optional: filter by keyword after fetching
+  #   max_results: 20
+  #   enabled: false
+
+# ── Rating Criteria ───────────────────────────────────────────────
+# Each criterion has a weight (0 = disabled, higher = more influence).
+# Final rating = weighted average of all criteria, scaled to 0–5.
+
+rating_criteria:
+
+  keywords:
+    weight: 3
+    # Terms matched against job title AND description (case-insensitive)
+    title_terms:
+      - python
+      - data
+      - analyst
+      - research
+    description_terms:
+      - python
+      - sql
+      - machine learning
+      - statistics
+
+  salary:
+    weight: 2
+    min_preferred: 80000    # AUD — partial credit given outside range
+    max_preferred: 130000
+
+  location:
+    weight: 2
+    preferred:
+      - Melbourne
+      - Remote
+      - Hybrid
+
+  company:
+    weight: 1
+    preferred_keywords:     # full score if any term found in company name
+      - University
+      - CSIRO
+      - government
+      - research
+    avoid_keywords:         # zero score if any term found in company name
+      - commission only
+      - mlm
+      - self-employed

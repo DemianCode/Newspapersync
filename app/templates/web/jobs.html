@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}Jobs — NewspaSync{% endblock %}
+
+{% block content %}
+
+{% if saved %}
+<div class="flash flash-success">&#10003; Jobs settings saved.</div>
+{% endif %}
+
+<div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; padding-bottom: 10px; border-bottom: 2px solid #1a1a1a;">
+  <h1 style="font-size: 1.4rem; letter-spacing: 0.04em; text-transform: uppercase;">Job Alerts</h1>
+  <a href="/jobs/history" class="btn btn-ghost btn-sm">&#128203; View 30-day History</a>
+</div>
+
+<!-- ── Global settings ── -->
+<div class="card">
+  <div class="card-title">Job Alerts Settings</div>
+  <form method="post" action="/jobs/settings">
+    <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+      <label style="display: flex; align-items: center; gap: 8px; font-family: -apple-system, sans-serif; font-size: 0.9rem; cursor: pointer;">
+        <input type="checkbox" name="enabled" {% if config.enabled %}checked{% endif %} style="width: 16px; height: 16px;">
+        Enable Jobs section in newspaper
+      </label>
+      <div>
+        <label class="field-label">Min. rating to show (0–5)</label>
+        <input type="number" name="min_rating" value="{{ config.min_rating | default(2.0) }}" min="0" max="5" step="0.5" style="width: 80px;">
+      </div>
+      <div>
+        <label class="field-label">Max jobs per edition</label>
+        <input type="number" name="max_jobs_per_edition" value="{{ config.max_jobs_per_edition | default(10) }}" min="1" max="50" style="width: 80px;">
+      </div>
+      <div>
+        <label class="field-label">Forget seen jobs after (days)</label>
+        <input type="number" name="seen_max_age_days" value="{{ config.seen_max_age_days | default(30) }}" min="1" max="365" style="width: 80px;">
+      </div>
+      <div style="align-self: flex-end;">
+        <button class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </form>
+  <p class="text-muted" style="margin-top: 12px; line-height: 1.5;">
+    Only <em>new</em> jobs (not seen on a previous run) rated at or above the minimum will appear in your newspaper.
+    Set <strong>JOBS_ENABLED=true</strong> in your environment to activate the source.
+  </p>
+</div>
+
+<!-- ── Configured searches ── -->
+<div class="card">
+  <div class="card-title">Job Searches ({{ config.searches | length }})</div>
+
+  {% set searches = config.searches | default([]) %}
+  {% if searches %}
+
+  <div style="
+    display: grid;
+    grid-template-columns: 160px 70px 1fr 80px 70px 120px 60px;
+    gap: 8px;
+    padding: 0 0 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #eee;
+    font-family: -apple-system, sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #888;
+  ">
+    <span>Name</span>
+    <span>Source</span>
+    <span>Keywords / URL</span>
+    <span>Max</span>
+    <span>Enabled</span>
+    <span></span>
+    <span></span>
+  </div>
+
+  {% for search in searches %}
+  <div style="display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f5f5f5;">
+    <form method="post" action="/jobs/search/update"
+          style="flex: 1; display: grid; grid-template-columns: 160px 70px 1fr 80px 70px 120px; gap: 8px; align-items: center;">
+      <input type="hidden" name="index" value="{{ loop.index0 }}">
+      <input type="hidden" name="id" value="{{ search.id }}">
+      <input type="hidden" name="source" value="{{ search.source }}">
+      <input type="text" name="name" value="{{ search.name }}" required style="width: 100%;">
+      <span style="font-family: -apple-system, sans-serif; font-size: 0.82rem; color: #555; padding: 0 4px;">{{ search.source }}</span>
+
+      <!-- Keyword / URL field depending on source type -->
+      {% if search.source == 'rss' %}
+        <input type="url" name="rss_url" value="{{ search.rss_url | default('') }}" placeholder="https://..." style="width: 100%;">
+      {% elif search.source == 'workday' %}
+        <div style="display: flex; gap: 4px;">
+          <input type="text" name="workday_tenant" value="{{ search.workday_tenant | default('') }}" placeholder="tenant" style="width: 80px;" title="Workday tenant (e.g. rmit)">
+          <input type="text" name="workday_instance" value="{{ search.workday_instance | default('') }}" placeholder="wd3" style="width: 50px;" title="Instance (e.g. wd3, wd105)">
+          <input type="text" name="workday_path" value="{{ search.workday_path | default('') }}" placeholder="path" style="flex: 1;" title="Career site path (e.g. RMIT_Careers)">
+          <input type="text" name="keywords" value="{{ search.keywords | default('') }}" placeholder="keywords" style="width: 90px;" title="Optional keyword filter">
+        </div>
+      {% else %}
+        <div style="display: flex; gap: 4px;">
+          <input type="text" name="keywords" value="{{ search.keywords | default('') }}" placeholder="keywords" style="flex: 1;">
+          <input type="text" name="location" value="{{ search.location | default('') }}" placeholder="location" style="width: 120px;">
+        </div>
+      {% endif %}
+
+      <input type="number" name="max_results" value="{{ search.max_results | default(20) }}" min="1" max="100" style="width: 100%;">
+      <label style="display: flex; align-items: center; gap: 6px; font-family: -apple-system, sans-serif; font-size: 0.85rem;">
+        <input type="checkbox" name="enabled" {% if search.enabled %}checked{% endif %}>
+        Enabled
+      </label>
+      <button class="btn btn-sm btn-primary">Save</button>
+    </form>
+
+    <form method="post" action="/jobs/search/delete">
+      <input type="hidden" name="index" value="{{ loop.index0 }}">
+      <button class="btn btn-sm btn-danger"
+              onclick="return confirm('Remove {{ search.name | replace("'", "\\'") }}?')">Delete</button>
+    </form>
+  </div>
+  {% endfor %}
+
+  {% else %}
+  <p class="text-muted" style="padding: 8px 0;">No searches configured yet. Add one below.</p>
+  {% endif %}
+</div>
+
+<!-- ── Add new search ── -->
+<div class="card">
+  <div class="card-title">Add Job Search</div>
+  <form method="post" action="/jobs/search/add" id="add-search-form">
+    <div style="display: grid; grid-template-columns: 180px 90px 1fr 80px auto; gap: 12px; align-items: end; margin-bottom: 12px;">
+      <div>
+        <label class="field-label">Name</label>
+        <input type="text" name="name" placeholder="e.g. Data Jobs (Seek)" required style="width: 100%;">
+      </div>
+      <div>
+        <label class="field-label">Source</label>
+        <select name="source" id="source-select" onchange="toggleSourceFields()"
+                style="width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.85rem; background: white;">
+          <option value="seek">Seek</option>
+          <option value="workday">Workday</option>
+          <option value="rss">RSS Feed</option>
+        </select>
+      </div>
+      <div id="seek-fields">
+        <label class="field-label">Keywords &amp; Location</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" name="keywords" placeholder="e.g. data analyst" style="flex: 1;">
+          <input type="text" name="location" placeholder="e.g. Melbourne VIC 3000" style="flex: 1;">
+        </div>
+      </div>
+      <div id="workday-fields" style="display: none;">
+        <label class="field-label">Workday Details</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" name="workday_tenant" placeholder="tenant" style="width: 80px;" title="e.g. rmit or unimelb">
+          <input type="text" name="workday_instance" placeholder="wd3" style="width: 55px;" title="e.g. wd3 or wd105">
+          <input type="text" name="workday_path" placeholder="career path" style="flex: 1;" title="e.g. RMIT_Careers">
+          <input type="text" name="keywords" placeholder="keywords (optional)" style="width: 110px;">
+        </div>
+      </div>
+      <div id="rss-fields" style="display: none;">
+        <label class="field-label">RSS Feed URL &amp; Keyword filter</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="url" name="rss_url" placeholder="https://..." style="flex: 1;">
+          <input type="text" name="keywords" placeholder="keywords (optional)" style="width: 130px;">
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Max results</label>
+        <input type="number" name="max_results" value="20" min="1" max="100" style="width: 100%;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="display: flex; align-items: center; gap: 6px; font-family: -apple-system, sans-serif; font-size: 0.85rem;">
+          <input type="checkbox" name="enabled" checked> Enabled
+        </label>
+        <button class="btn btn-primary">Add Search</button>
+      </div>
+    </div>
+
+    <!-- Workday presets -->
+    <div id="workday-presets" style="display: none; margin-top: 4px;">
+      <span style="font-family: -apple-system, sans-serif; font-size: 0.8rem; color: #888; margin-right: 8px;">Quick presets:</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="fillWorkday('rmit','wd3','RMIT_Careers','RMIT')">RMIT</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="fillWorkday('unimelb','wd105','UoM_External_Career','UniMelb')">UniMelb</button>
+    </div>
+  </form>
+</div>
+
+<!-- ── Rating criteria ── -->
+{% set crit = config.rating_criteria | default({}) %}
+{% set kw = crit.keywords | default({}) %}
+{% set sal = crit.salary | default({}) %}
+{% set loc = crit.location | default({}) %}
+{% set comp = crit.company | default({}) %}
+
+<div class="card">
+  <div class="card-title">Rating Criteria</div>
+  <p class="text-muted" style="margin-bottom: 16px; line-height: 1.5;">
+    Each job is scored 0–5 stars. Weight controls how much each criterion contributes.
+    Jobs below the minimum rating (set above) are skipped.
+  </p>
+
+  <form method="post" action="/jobs/criteria/update">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+      <!-- Keywords -->
+      <div>
+        <div style="font-family: -apple-system, sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #555; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eee;">
+          Keywords <span style="font-weight: normal; color: #999;">(matches title &amp; description)</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: end; margin-bottom: 10px;">
+          <div>
+            <label class="field-label">Weight</label>
+            <input type="number" name="kw_weight" value="{{ kw.weight | default(3) }}" min="0" max="10" style="width: 100%;">
+          </div>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label class="field-label">Title keywords (comma-separated)</label>
+          <input type="text" name="title_terms" value="{{ (kw.title_terms | default([])) | join(', ') }}"
+                 placeholder="e.g. python, analyst, research" style="width: 100%;">
+        </div>
+        <div>
+          <label class="field-label">Description keywords (comma-separated)</label>
+          <input type="text" name="description_terms" value="{{ (kw.description_terms | default([])) | join(', ') }}"
+                 placeholder="e.g. sql, machine learning, statistics" style="width: 100%;">
+        </div>
+      </div>
+
+      <!-- Salary -->
+      <div>
+        <div style="font-family: -apple-system, sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #555; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eee;">
+          Salary
+        </div>
+        <div style="display: grid; grid-template-columns: 80px 1fr 1fr; gap: 10px; align-items: end;">
+          <div>
+            <label class="field-label">Weight</label>
+            <input type="number" name="sal_weight" value="{{ sal.weight | default(2) }}" min="0" max="10" style="width: 100%;">
+          </div>
+          <div>
+            <label class="field-label">Min preferred ($)</label>
+            <input type="number" name="sal_min" value="{{ sal.min_preferred | default(0) }}" min="0" style="width: 100%;">
+          </div>
+          <div>
+            <label class="field-label">Max preferred ($)</label>
+            <input type="number" name="sal_max" value="{{ sal.max_preferred | default(999999) }}" min="0" style="width: 100%;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div>
+        <div style="font-family: -apple-system, sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #555; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eee;">
+          Location
+        </div>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: end;">
+          <div>
+            <label class="field-label">Weight</label>
+            <input type="number" name="loc_weight" value="{{ loc.weight | default(2) }}" min="0" max="10" style="width: 100%;">
+          </div>
+          <div>
+            <label class="field-label">Preferred locations (comma-separated)</label>
+            <input type="text" name="loc_preferred" value="{{ (loc.preferred | default([])) | join(', ') }}"
+                   placeholder="e.g. Melbourne, Remote, Hybrid" style="width: 100%;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Company -->
+      <div>
+        <div style="font-family: -apple-system, sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #555; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eee;">
+          Company / Employer
+        </div>
+        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: end; margin-bottom: 10px;">
+          <div>
+            <label class="field-label">Weight</label>
+            <input type="number" name="comp_weight" value="{{ comp.weight | default(1) }}" min="0" max="10" style="width: 100%;">
+          </div>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label class="field-label">Preferred keywords in company name</label>
+          <input type="text" name="comp_preferred" value="{{ (comp.preferred_keywords | default([])) | join(', ') }}"
+                 placeholder="e.g. University, CSIRO, government" style="width: 100%;">
+        </div>
+        <div>
+          <label class="field-label">Avoid keywords in company name</label>
+          <input type="text" name="comp_avoid" value="{{ (comp.avoid_keywords | default([])) | join(', ') }}"
+                 placeholder="e.g. commission only, mlm" style="width: 100%;">
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 20px;">
+      <button class="btn btn-primary">Save Criteria</button>
+    </div>
+  </form>
+</div>
+
+<!-- ── Reference ── -->
+<div class="card" style="background: #fafaf7; border-color: #e8e5dd;">
+  <div class="card-title">Workday University Portals</div>
+  <table style="font-family: -apple-system, sans-serif; font-size: 0.85rem; border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr style="color: #666; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <th style="text-align: left; padding: 4px 0; font-weight: 600; width: 180px;">Institution</th>
+        <th style="text-align: left; padding: 4px 0; font-weight: 600; width: 90px;">Tenant</th>
+        <th style="text-align: left; padding: 4px 0; font-weight: 600; width: 80px;">Instance</th>
+        <th style="text-align: left; padding: 4px 0; font-weight: 600;">Career Path</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in [
+        ("RMIT University",            "rmit",    "wd3",   "RMIT_Careers"),
+        ("University of Melbourne",    "unimelb", "wd105", "UoM_External_Career"),
+      ] %}
+      <tr style="border-top: 1px solid #eee;">
+        <td style="padding: 6px 0; color: #333;">{{ row[0] }}</td>
+        <td style="padding: 6px 0;" class="mono">{{ row[1] }}</td>
+        <td style="padding: 6px 0;" class="mono">{{ row[2] }}</td>
+        <td style="padding: 6px 0;" class="mono">{{ row[3] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="text-muted" style="margin-top: 10px;">
+    Other universities on Workday: search for <span class="mono">[university name].wd*.myworkdayjobs.com</span> to find their tenant and instance.
+  </p>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSourceFields() {
+  const src = document.getElementById('source-select').value;
+  document.getElementById('seek-fields').style.display     = src === 'seek'     ? '' : 'none';
+  document.getElementById('workday-fields').style.display  = src === 'workday'  ? '' : 'none';
+  document.getElementById('rss-fields').style.display      = src === 'rss'      ? '' : 'none';
+  document.getElementById('workday-presets').style.display = src === 'workday'  ? '' : 'none';
+}
+
+function fillWorkday(tenant, instance, path, name) {
+  const form = document.getElementById('add-search-form');
+  form.querySelector('[name=workday_tenant]').value   = tenant;
+  form.querySelector('[name=workday_instance]').value = instance;
+  form.querySelector('[name=workday_path]').value     = path;
+  if (!form.querySelector('[name=name]').value) {
+    form.querySelector('[name=name]').value = name + ' Jobs';
+  }
+}
+</script>
+{% endblock %}

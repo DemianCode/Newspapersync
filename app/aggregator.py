@@ -68,7 +68,7 @@ def collect(edition: dict | None = None) -> dict:
     """
     from app.sources import (
         weather, rss, email_source, ticktick, learning, shell, sudoku,
-        wikipedia, wikiquote_daily, word_of_the_day,
+        wikipedia, wikiquote_daily, word_of_the_day, jobs,
     )
 
     edition_sources = edition.get("sources") if edition else None
@@ -92,6 +92,7 @@ def collect(edition: dict | None = None) -> dict:
         ("wikipedia",       wikipedia),
         ("wikiquote",       wikiquote_daily),
         ("word_of_the_day", word_of_the_day),
+        ("jobs",            jobs),
     ]
 
     blocks: list[dict] = []
@@ -140,6 +141,7 @@ def collect(edition: dict | None = None) -> dict:
         "wikipedia": _pick_block(blocks, "wikipedia", "wikipedia"),
         "wikiquote": _pick_block(blocks, "wikiquote", "wikiquote_daily"),
         "word_of_the_day": _pick_block(blocks, "word_of_the_day", "word_of_the_day"),
+        "job_blocks": [b for b in blocks if b["type"] == "job"],
         "edition_name": edition.get("name") if edition else None,
         "all_blocks": blocks,
         "config": config,
