@@ -500,6 +500,9 @@ async def settings_page(request: Request):
         "Wikipedia": {
             "WIKIPEDIA_ENABLED": eff("WIKIPEDIA_ENABLED", "false"),
         },
+        "Jobs": {
+            "JOBS_ENABLED": eff("JOBS_ENABLED", "false"),
+        },
         "WikiquoteDaily": {
             "WIKIQUOTE_DAILY_ENABLED": eff("WIKIQUOTE_DAILY_ENABLED", "false"),
         },
@@ -572,6 +575,11 @@ async def save_settings(request: Request):
 
     # Word of the Day
     for key in ("WOTD_ENABLED",):
+        if key in form:
+            updates[key] = str(form[key]).strip()
+
+    # Jobs
+    for key in ("JOBS_ENABLED",):
         if key in form:
             updates[key] = str(form[key]).strip()
 

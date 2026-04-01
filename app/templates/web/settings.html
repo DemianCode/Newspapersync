@@ -472,6 +472,33 @@
 </form>
 
 <!-- ══════════════════════════════════════════════════════════════════════════
+     EDITABLE: Jobs
+     ══════════════════════════════════════════════════════════════════════ -->
+<form method="post" action="/settings/update">
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">Job Listings</div>
+
+  <div style="margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-family:-apple-system,sans-serif;font-size:0.875rem;cursor:pointer;">
+      <input type="hidden" name="JOBS_ENABLED" value="false">
+      <input type="checkbox" name="JOBS_ENABLED" value="true"
+        {% if editable.Jobs.JOBS_ENABLED == 'true' %}checked{% endif %}
+        style="width:16px;height:16px;">
+      Enabled
+    </label>
+  </div>
+
+  <p style="font-family:-apple-system,sans-serif;font-size:0.78rem;color:#888;margin-bottom:14px;">
+    Fetches new job listings from configured sources (Seek, Workday, RSS). Searches and rating
+    criteria are managed on the <a href="/jobs" style="color:#1a1a1a;">Jobs page</a>.
+    Only jobs not seen on a previous run, and rated above the minimum threshold, appear in the newspaper.
+  </p>
+
+  <button type="submit" class="btn btn-primary">Save Jobs</button>
+</div>
+</form>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
      READ-ONLY: docker-compose.yml env vars (reMarkable, AI, etc.)
      ══════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="background:#fffbf0;border-color:#f0e8c8;margin-bottom:20px;">

@@ -36,6 +36,7 @@ ALL_SOURCES: list[tuple[str, str]] = [
     ("wikipedia",     "Wikipedia Article of the Day"),
     ("wikiquote",     "Wikiquote Quote of the Day"),
     ("word_of_the_day", "Word of the Day"),
+    ("jobs",          "Job Listings"),
 ]
 
 _SOURCE_KEYS = [k for k, _ in ALL_SOURCES]
