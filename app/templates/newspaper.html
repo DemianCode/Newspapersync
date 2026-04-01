@@ -66,7 +66,7 @@
     border-radius: 1pt;
   }
 
-  .weather-compact { width: 88pt; flex-shrink: 0; background: #f7f7f7; border: 1px solid #ccc; border-radius: 2pt; padding: 5pt 6pt; font-family: "Liberation Sans", "Arial", sans-serif; }
+  .weather-compact { width: 96pt; flex-shrink: 0; background: #f7f7f7; border: 1px solid #ccc; border-radius: 2pt; padding: 5pt 6pt; font-family: "Liberation Sans", "Arial", sans-serif; }
   .wc-label { font-size: {{ config.font_size - 3 }}pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 2pt; margin-bottom: 4pt; }
   .wc-temp { font-size: 18pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; }
   .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #333; margin-bottom: 4pt; }
@@ -168,7 +168,7 @@
     padding: 1pt 4pt;
   }
 
-  .weather-compact { width: 92pt; flex-shrink: 0; background: #fef0d0; border: 1px solid #c8a87a; padding: 5pt 6pt; font-family: "Liberation Mono", "Courier New", monospace; }
+  .weather-compact { width: 96pt; flex-shrink: 0; background: #fef0d0; border: 1px solid #c8a87a; padding: 5pt 6pt; font-family: "Liberation Mono", "Courier New", monospace; }
   .wc-label { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8b4513; border-bottom: 1px solid #c8a87a; padding-bottom: 2pt; margin-bottom: 4pt; }
   .wc-temp { font-size: 16pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; color: #5a2000; }
   .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #3d2000; margin-bottom: 4pt; }
@@ -531,18 +531,30 @@
     <!-- COMPACT WEATHER BOX -->
     {% if weather %}
     <div class="weather-compact">
-      <div class="wc-label">Weather</div>
-      <div style="font-size: 26pt; line-height: 1; margin-bottom: 2pt;">{{ weather.meta.emoji }}</div>
+      <div class="wc-label">{{ weather.title }}</div>
+
+      <!-- Current now -->
+      <div style="font-size: 22pt; line-height: 1; margin-bottom: 1pt;">{{ weather.meta.day_emoji or weather.meta.emoji }}</div>
       <div class="wc-temp">{{ weather.meta.temp }}{{ weather.meta.temp_symbol }}</div>
-      <div class="wc-condition">{{ weather.meta.condition }}</div>
+      <div class="wc-condition">{{ weather.meta.day_condition or weather.meta.condition }}</div>
+
+      <!-- Day summary: high/low + sunrise/sunset -->
       <div class="wc-meta">
-        Feels {{ weather.meta.feels_like }}{{ weather.meta.temp_symbol }}<br>
-        Wind {{ weather.meta.wind }} km/h<br>
-        Humidity {{ weather.meta.humidity }}%
+        {% if weather.meta.high is not none %}
+        ↑{{ weather.meta.high }}{{ weather.meta.temp_symbol }} ↓{{ weather.meta.low }}{{ weather.meta.temp_symbol }}<br>
+        {% endif %}
+        Feels {{ weather.meta.feels_like }}{{ weather.meta.temp_symbol }} · {{ weather.meta.humidity }}% humidity<br>
+        Wind {{ weather.meta.wind }} km/h
+        {% if weather.meta.precip_max is not none %} · {{ weather.meta.precip_max }}% rain{% endif %}
+        {% if weather.meta.sunrise %}
+        <br>&#9728; {{ weather.meta.sunrise }} &nbsp; &#9790; {{ weather.meta.sunset }}
+        {% endif %}
       </div>
+
+      <!-- Hourly from now until end of day -->
       {% if weather.meta.hourly %}
       <div class="wc-hourly">
-        {% for hour in weather.meta.hourly[:5] %}
+        {% for hour in weather.meta.hourly %}
         <div class="wc-hour-row">
           <span class="h-time">{{ hour.time }}</span>
           <span>{{ hour.emoji }}</span>
@@ -550,6 +562,20 @@
           <span>{{ hour.precip }}</span>
         </div>
         {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Tomorrow summary -->
+      {% set tmrw = weather.meta.tomorrow %}
+      {% if tmrw and tmrw.high is not none %}
+      <div class="wc-hourly" style="margin-top: 4pt;">
+        <div class="wc-hour-row" style="font-weight: 700; color: #555; font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2pt;">Tomorrow</div>
+        <div class="wc-hour-row">
+          <span>{{ tmrw.emoji }}</span>
+          <span>{{ tmrw.condition }}</span>
+          <span>↑{{ tmrw.high }}{{ weather.meta.temp_symbol }} ↓{{ tmrw.low }}{{ weather.meta.temp_symbol }}</span>
+          {% if tmrw.precip is not none %}<span>{{ tmrw.precip }}% rain</span>{% endif %}
+        </div>
       </div>
       {% endif %}
     </div>
