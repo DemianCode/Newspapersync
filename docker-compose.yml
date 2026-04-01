@@ -1,6 +1,7 @@
 services:
   newspapersync:
-    build: .
+    image: ghcr.io/demiancode/newspapersync:latest  # pull latest: docker compose pull && docker compose up -d
+    build: .                                         # build from source instead: docker compose up --build -d
     container_name: newspapersync
     restart: unless-stopped
     env_file: .env                        # all secrets live in .env (gitignored)
