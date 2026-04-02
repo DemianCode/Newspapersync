@@ -36,6 +36,7 @@ ALL_SOURCES: list[tuple[str, str]] = [
     ("wikipedia",     "Wikipedia Article of the Day"),
     ("wikiquote",     "Wikiquote Quote of the Day"),
     ("word_of_the_day", "Word of the Day"),
+    ("jobs",          "Job Listings"),
 ]
 
 _SOURCE_KEYS = [k for k, _ in ALL_SOURCES]
@@ -52,13 +53,18 @@ def has_editions() -> bool:
 
 
 def load() -> list[dict]:
-    """Load all editions from editions.yml. Returns [] if file missing."""
+    """Load all editions from editions.yml. Returns [] if file missing.
+
+    Each edition is normalised so it always contains every current source key.
+    This means editions saved before a new source was added will show that
+    source as disabled rather than missing from the UI.
+    """
     if not EDITIONS_PATH.exists():
         return []
     try:
         with open(EDITIONS_PATH) as f:
             data = yaml.safe_load(f) or {}
-        return data.get("editions", [])
+        return [_normalise(e) for e in data.get("editions", [])]
     except Exception:
         return []
 

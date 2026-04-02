@@ -152,7 +152,7 @@
     </div>
   </div>
 
-  <form method="post" action="/editions/{{ edition.id }}/update">
+  <form id="update-{{ edition.id }}" method="post" action="/editions/{{ edition.id }}/update">
   <div class="edition-body">
 
     {# Basic settings #}
@@ -238,14 +238,14 @@
     </div>
 
   </div>
+  </form>
   <div class="edition-actions">
     <form method="post" action="/editions/{{ edition.id }}/delete"
           onsubmit="return confirm('Delete edition \'{{ edition.name }}\'? This cannot be undone.')">
       <button type="submit" class="btn btn-danger btn-sm">Delete</button>
     </form>
-    <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+    <button type="submit" form="update-{{ edition.id }}" class="btn btn-primary btn-sm">Save Changes</button>
   </div>
-  </form>
 </div>
 {% else %}
 <p class="text-muted" style="margin-bottom: 24px; font-family: -apple-system, sans-serif; font-size: 0.875rem;">
