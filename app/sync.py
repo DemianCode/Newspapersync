@@ -111,10 +111,17 @@ def _rmapi_available() -> bool:
     token_files = list(auth_dir.glob("*")) if auth_dir.exists() else []
     logger.debug("rmapi config dir contents: %s", [f.name for f in token_files])
 
-    result = subprocess.run(
-        ["rmapi", "-ni", "ls", "/"],
-        capture_output=True, text=True, timeout=15,
-    )
+    try:
+        result = subprocess.run(
+            ["rmapi", "-ni", "ls", "/"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        logger.error(
+            "rmapi -ni ls / timed out after 15 s — reMarkable cloud unreachable or network issue. "
+            "Sync will be skipped this run."
+        )
+        return False
     if result.returncode != 0:
         logger.error(
             "rmapi is installed but not authenticated (rmapi -ni ls / returned %d: %s). "
