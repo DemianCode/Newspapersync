@@ -325,6 +325,36 @@
   </p>
 </div>
 
+<!-- ── Run search ── -->
+<div class="card">
+  <div class="card-title">Test Job Search</div>
+  <p class="text-muted" style="margin-bottom: 14px; line-height: 1.5;">
+    Runs all enabled searches now and shows results without updating the newspaper or seen-jobs list.
+    Useful for verifying scrapers and tuning rating criteria.
+  </p>
+  <button id="run-btn" class="btn btn-primary" onclick="runSearch()">Run Search Now</button>
+  <span id="run-status" style="margin-left: 12px; font-family: -apple-system, sans-serif; font-size: 0.85rem; color: #888;"></span>
+
+  <div id="run-results" style="display: none; margin-top: 20px;">
+    <div id="run-errors" style="margin-bottom: 12px;"></div>
+    <div id="run-summary" style="font-family: -apple-system, sans-serif; font-size: 0.82rem; color: #555; margin-bottom: 12px;"></div>
+    <table style="width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 0.83rem;">
+      <thead>
+        <tr style="background: #f8f8f8; border-bottom: 2px solid #ddd;">
+          <th style="text-align:left; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Title</th>
+          <th style="text-align:left; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Company</th>
+          <th style="text-align:left; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Location</th>
+          <th style="text-align:left; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Salary</th>
+          <th style="text-align:center; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Rating</th>
+          <th style="text-align:center; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">New?</th>
+          <th style="text-align:left; padding: 8px 10px; font-size:0.72rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#666;">Source</th>
+        </tr>
+      </thead>
+      <tbody id="run-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -344,6 +374,77 @@ function fillWorkday(tenant, instance, path, name) {
   form.querySelector('[name=workday_path]').value     = path;
   if (!form.querySelector('[name=name]').value) {
     form.querySelector('[name=name]').value = name + ' Jobs';
+  }
+}
+
+async function runSearch() {
+  const btn    = document.getElementById('run-btn');
+  const status = document.getElementById('run-status');
+  const panel  = document.getElementById('run-results');
+
+  btn.disabled = true;
+  status.textContent = 'Running searches…';
+  panel.style.display = 'none';
+
+  try {
+    const resp = await fetch('/jobs/run', { method: 'POST' });
+    const data = await resp.json();
+
+    // Errors
+    const errDiv = document.getElementById('run-errors');
+    if (data.errors && data.errors.length) {
+      errDiv.innerHTML = data.errors.map(e =>
+        `<div style="background:#f8d7da;color:#721c24;padding:6px 10px;border-radius:3px;font-size:0.82rem;margin-bottom:4px;">&#9888; ${e}</div>`
+      ).join('');
+    } else {
+      errDiv.innerHTML = '';
+    }
+
+    // Summary
+    const newCount = (data.results || []).filter(j => j.is_new).length;
+    document.getElementById('run-summary').textContent =
+      `${data.total} jobs found · ${newCount} new (not yet seen)`;
+
+    // Table rows
+    const tbody = document.getElementById('run-tbody');
+    tbody.innerHTML = '';
+    (data.results || []).forEach(job => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid #f0f0f0';
+      if (!job.is_new) tr.style.color = '#bbb';
+      tr.innerHTML = `
+        <td style="padding:8px 10px; max-width:220px;">
+          <a href="${job.url}" target="_blank" rel="noopener"
+             style="color:${job.is_new ? '#1a1a1a' : '#bbb'}; font-weight:${job.is_new ? '600' : '400'}; text-decoration:none;">
+            ${job.title || '—'}
+          </a>
+          ${job.description ? `<div style="font-size:0.73rem;color:#aaa;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px;">${job.description}</div>` : ''}
+        </td>
+        <td style="padding:8px 10px; white-space:nowrap;">${job.company || '—'}</td>
+        <td style="padding:8px 10px; white-space:nowrap; font-size:0.8rem; color:#666;">${job.location || '—'}</td>
+        <td style="padding:8px 10px; white-space:nowrap; font-size:0.8rem; color:#555; font-style:${job.salary ? 'normal' : 'italic'};">
+          ${job.salary || '<span style="color:#bbb">n/a</span>'}
+        </td>
+        <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
+          <span style="color:${job.is_new ? '#c8860a' : '#ccc'};" title="${job.rating}/5">${job.rating_stars}</span>
+          <div style="font-size:0.7rem;color:#aaa;">${job.rating}</div>
+        </td>
+        <td style="padding:8px 10px; text-align:center;">
+          ${job.is_new
+            ? '<span class="badge badge-success" style="font-size:0.65rem;">New</span>'
+            : '<span class="badge badge-idle"    style="font-size:0.65rem;">Seen</span>'}
+        </td>
+        <td style="padding:8px 10px; font-size:0.78rem; color:#888; white-space:nowrap;">${job.source || '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    panel.style.display = '';
+    status.textContent  = `Done — ${data.total} results`;
+  } catch (err) {
+    status.textContent = 'Error: ' + err;
+  } finally {
+    btn.disabled = false;
   }
 }
 </script>

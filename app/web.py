@@ -1104,3 +1104,59 @@ async def jobs_history_page(request: Request):
             "total": len(jobs_list),
         },
     )
+
+
+@app.post("/jobs/run")
+async def run_jobs_now(request: Request):
+    """Manually trigger the job scrapers and return results as JSON.
+
+    Bypasses the JOBS_ENABLED env-var gate so the user can test without
+    restarting the container. Scoring and deduplication run as normal, but
+    the seen/history files are NOT updated — this is a dry-run preview.
+    """
+    import copy
+    from app.sources import jobs as jobs_module
+
+    config = _load_jobs_config()
+    searches = config.get("searches", [])
+    if not searches:
+        return JSONResponse({"error": "No searches configured.", "results": []})
+
+    seen = jobs_module._load_seen()
+    criteria = config.get("rating_criteria", {})
+
+    raw_jobs: list[dict] = []
+    errors: list[str] = []
+    for search in searches:
+        if not search.get("enabled", True):
+            continue
+        scraper = jobs_module._get_scraper(search.get("source", ""))
+        if scraper is None:
+            errors.append(f"Unknown source type '{search.get('source')}'")
+            continue
+        try:
+            raw_jobs.extend(scraper.search(search))
+        except Exception as exc:
+            errors.append(f"{search.get('name', search.get('source', '?'))}: {exc}")
+
+    results = []
+    for job in raw_jobs:
+        job_id = job.get("id", "")
+        rating = jobs_module._score_job(job, criteria)
+        results.append({
+            "id":          job_id,
+            "title":       job.get("title", ""),
+            "company":     job.get("company", ""),
+            "location":    job.get("location", ""),
+            "salary":      job.get("salary", ""),
+            "description": job.get("description", "")[:300],
+            "url":         job.get("url", ""),
+            "source":      job.get("source_name", ""),
+            "date_posted": job.get("date_posted", ""),
+            "rating":      rating,
+            "rating_stars": jobs_module._stars(rating),
+            "is_new":      job_id not in seen,
+        })
+
+    results.sort(key=lambda j: (j["is_new"], j["rating"]), reverse=True)
+    return JSONResponse({"results": results, "errors": errors, "total": len(results)})
