@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from datetime import datetime
 from functools import partial
@@ -20,6 +21,7 @@ import json
 import yaml
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Request
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -27,6 +29,22 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="NewspaSync")
 templates = Jinja2Templates(directory="/app/app/templates/web")
+
+_OUTPUT_DIR = Path("/app/output")
+_SAFE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+class _SecurityHeaders(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(_SecurityHeaders)
 
 # ── Legacy (single-edition) state ────────────────────────────────────────────
 _state: dict = {
@@ -267,16 +285,13 @@ async def trigger_sync(request: Request):
     form = await request.form()
     filename = str(form.get("filename", "")).strip()
     if filename:
-        path = Path("/app/output") / filename
-        if (
-            not path.exists()
-            or not filename.startswith("newspaper-")
-            or not filename.endswith(".pdf")
-        ):
+        if not _is_safe_pdf_filename(filename):
+            return HTMLResponse("Not found", status_code=404)
+        path = (_OUTPUT_DIR / filename).resolve()
+        if not str(path).startswith(str(_OUTPUT_DIR.resolve()) + "/") or not path.exists():
             return HTMLResponse("Not found", status_code=404)
     else:
-        output_dir = Path("/app/output")
-        pdfs = sorted(output_dir.glob("newspaper-*.pdf"), reverse=True) if output_dir.exists() else []
+        pdfs = sorted(_OUTPUT_DIR.glob("newspaper-*.pdf"), reverse=True) if _OUTPUT_DIR.exists() else []
         if not pdfs:
             return RedirectResponse("/", status_code=303)
         path = pdfs[0]
@@ -287,12 +302,10 @@ async def trigger_sync(request: Request):
 
 @app.get("/pdf/{filename}")
 async def serve_pdf(filename: str):
-    path = Path("/app/output") / filename
-    if (
-        not path.exists()
-        or not filename.startswith("newspaper-")
-        or not filename.endswith(".pdf")
-    ):
+    if not _is_safe_pdf_filename(filename):
+        return HTMLResponse("Not found", status_code=404)
+    path = (_OUTPUT_DIR / filename).resolve()
+    if not str(path).startswith(str(_OUTPUT_DIR.resolve()) + "/") or not path.exists():
         return HTMLResponse("Not found", status_code=404)
     return FileResponse(
         str(path),
@@ -320,8 +333,8 @@ async def sources_page(request: Request):
 @app.post("/sources/add")
 async def add_feed(request: Request):
     form = await request.form()
-    name = str(form.get("name", "")).strip()
-    url = str(form.get("url", "")).strip()
+    name = str(form.get("name", "")).strip()[:200]
+    url = str(form.get("url", "")).strip()[:2048]
     max_items = int(form.get("max_items") or 5)
     if name and url:
         config = _load_sources_config()
@@ -343,8 +356,8 @@ async def update_feed(request: Request):
     feeds = config.get("rss", {}).get("feeds", [])
     if 0 <= idx < len(feeds):
         feeds[idx] = {
-            "name": str(form.get("name", "")).strip(),
-            "url": str(form.get("url", "")).strip(),
+            "name": str(form.get("name", "")).strip()[:200],
+            "url": str(form.get("url", "")).strip()[:2048],
             "max_items": int(form.get("max_items") or 5),
         }
         _save_sources_config(config)
@@ -662,6 +675,8 @@ async def create_edition(request: Request):
 
 @app.post("/editions/{edition_id}/update")
 async def update_edition(edition_id: str, request: Request):
+    if not _SAFE_ID_RE.match(edition_id):
+        return HTMLResponse("Invalid edition ID", status_code=400)
     from app import editions as editions_module
     form = await request.form()
     edition = editions_module.update(edition_id, dict(form))
@@ -685,6 +700,8 @@ async def update_edition(edition_id: str, request: Request):
 
 @app.post("/editions/{edition_id}/delete")
 async def delete_edition(edition_id: str, request: Request):
+    if not _SAFE_ID_RE.match(edition_id):
+        return HTMLResponse("Invalid edition ID", status_code=400)
     from app import editions as editions_module
     editions_module.delete(edition_id)
     if _scheduler:
@@ -697,6 +714,8 @@ async def delete_edition(edition_id: str, request: Request):
 
 @app.post("/editions/{edition_id}/run")
 async def run_edition_now(edition_id: str):
+    if not _SAFE_ID_RE.match(edition_id):
+        return HTMLResponse("Invalid edition ID", status_code=400)
     t = threading.Thread(
         target=partial(run_pipeline_tracked_for_edition, edition_id),
         daemon=True,
@@ -771,6 +790,17 @@ def _save_sources_config(config: dict) -> None:
 
 def _load_feeds() -> list:
     return _load_sources_config().get("rss", {}).get("feeds", [])
+
+
+def _is_safe_pdf_filename(filename: str) -> bool:
+    """Return True only for plain newspaper-*.pdf filenames with no path components."""
+    return (
+        filename.startswith("newspaper-")
+        and filename.endswith(".pdf")
+        and "/" not in filename
+        and "\\" not in filename
+        and ".." not in filename
+    )
 
 
 # ── Learning Feeds ─────────────────────────────────────────────────────────────
@@ -865,8 +895,8 @@ async def shell_page(request: Request):
 async def add_shell_snippet(request: Request):
     from app.sources import shell
     form = await request.form()
-    name = str(form.get("name", "")).strip()
-    command = str(form.get("command", "")).strip()
+    name = str(form.get("name", "")).strip()[:200]
+    command = str(form.get("command", "")).strip()[:2000]
     timeout = max(1, min(60, int(form.get("timeout") or 10)))
     if name and command:
         shell.add_snippet(name, command, timeout)
@@ -877,9 +907,9 @@ async def add_shell_snippet(request: Request):
 async def update_shell_snippet(request: Request):
     from app.sources import shell
     form = await request.form()
-    snippet_id = str(form.get("id", "")).strip()
-    name = str(form.get("name", "")).strip()
-    command = str(form.get("command", "")).strip()
+    snippet_id = str(form.get("id", "")).strip()[:36]
+    name = str(form.get("name", "")).strip()[:200]
+    command = str(form.get("command", "")).strip()[:2000]
     active = form.get("active") == "true"
     timeout = max(1, min(60, int(form.get("timeout") or 10)))
     shell.update_snippet(snippet_id, name=name, command=command, active=active, timeout=timeout)
@@ -899,7 +929,7 @@ async def delete_shell_snippet(request: Request):
 async def test_shell_snippet(request: Request):
     from app.sources import shell
     form = await request.form()
-    command = str(form.get("command", "")).strip()
+    command = str(form.get("command", "")).strip()[:2000]
     timeout = max(1, min(30, int(form.get("timeout") or 10)))
     if not command:
         return JSONResponse({"output": "", "error": "No command provided"})

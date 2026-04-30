@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 _CONFIG_PATH = Path("/app/config/shell_snippets.yml")
 _ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 _MAX_OUTPUT_CHARS = 3000
+_MAX_COMMAND_CHARS = 2000
 _DEFAULT_TIMEOUT = 10
 
 # Guard against obviously destructive commands. Local-only tool but still worth
@@ -127,6 +128,8 @@ def delete_snippet(snippet_id: str) -> bool:
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _run_command(command: str, timeout: int) -> tuple[str, str | None]:
+    if len(command) > _MAX_COMMAND_CHARS:
+        return "", f"Command exceeds {_MAX_COMMAND_CHARS}-character limit"
     if _BLOCKED_RE.search(command):
         return "", "Command blocked by safety filter"
 
