@@ -557,9 +557,9 @@
         {% for hour in weather.meta.hourly %}
         <div class="wc-hour-row">
           <span class="h-time">{{ hour.time }}</span>
-          <span>{{ hour.emoji }}</span>
+          <span style="font-size: 14pt;">{{ hour.emoji }}</span>
           <span>{{ hour.temp }}</span>
-          <span>{{ hour.precip }}</span>
+          {% if hour.precip %}<span style="font-size: 7pt; color: #888;">{{ hour.precip }}</span>{% endif %}
         </div>
         {% endfor %}
       </div>
