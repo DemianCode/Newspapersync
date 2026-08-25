@@ -9,7 +9,7 @@ Runs as a single Docker container with a web UI for managing everything.
 
 - **Web UI** — dashboard, PDF preview, RSS editor at `http://localhost:3050`
 - **RSS feeds** — configurable feeds via the web UI or `config/sources.yml`
-- **Weather** — current conditions + hourly forecast via Open-Meteo (no API key needed)
+- **Weather** — the day's forecast (high/low, rain, wind, UV, sun times), a morning-to-night outlook and tomorrow's summary via Open-Meteo (no API key needed)
 - **Wikipedia** — Article of the Day, with graceful error display if unavailable
 - **Wikiquote** — Quote of the Day from Wikiquote
 - **Word of the Day** — daily word and definition from Merriam-Webster
