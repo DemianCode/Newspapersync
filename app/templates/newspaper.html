@@ -3,422 +3,621 @@
 <head>
 <meta charset="UTF-8">
 <title>{{ config.newspaper_name }} — {{ generated_at }}</title>
+
+{#- ═══════════════════════════════════════════════════════════════════════════
+    THEME TOKENS
+    One dictionary per theme is the single source of truth for colour, type
+    and rules. The stylesheet below is shared by every theme and reads from
+    these tokens, so layout only ever has to be fixed in one place.
+    ═══════════════════════════════════════════════════════════════════════ #}
+{%- if config.theme == 'retro' %}
+  {%- set fs = config.font_size %}
+  {%- set T = {
+    'paper': '#fdf6e3', 'ink': '#1a0a00', 'ink_soft': '#3d2000', 'ink_mute': '#7a5030',
+    'rule': '#5a3e1b', 'rule_soft': '#c8a87a', 'hairline': '#ddc9a4',
+    'panel': '#fef0d0', 'panel_rule': '#c8a87a', 'accent': '#8b4513', 'alert': '#8b0000',
+    'font_body': '"Liberation Mono", "Courier New", "Courier", monospace',
+    'font_ui':   '"Liberation Mono", "Courier New", "Courier", monospace',
+    'font_mono': '"Liberation Mono", "Courier New", monospace',
+    'lh': '1.5', 'radius': '0', 'masthead_scale': 2.1, 'track': '0.06em'
+  } %}
+{%- elif config.theme == 'readable' %}
+  {%- set fs = [config.font_size, 10] | max %}
+  {%- set T = {
+    'paper': '#faf8f2', 'ink': '#1a1208', 'ink_soft': '#2d2416', 'ink_mute': '#6b5c42',
+    'rule': '#6b5c42', 'rule_soft': '#c8b89a', 'hairline': '#e8e0d0',
+    'panel': '#f0ece2', 'panel_rule': '#c8b89a', 'accent': '#6b5c42', 'alert': '#8b2000',
+    'font_body': '"OpenDyslexic", "DejaVu Sans", "Verdana", "Arial", sans-serif',
+    'font_ui':   '"OpenDyslexic", "DejaVu Sans", "Verdana", "Arial", sans-serif',
+    'font_mono': '"DejaVu Sans Mono", "Liberation Mono", monospace',
+    'lh': '1.7', 'radius': '4pt', 'masthead_scale': 2.0, 'track': '0.02em'
+  } %}
+{%- else %}
+  {%- set fs = config.font_size %}
+  {%- set T = {
+    'paper': '#ffffff', 'ink': '#111111', 'ink_soft': '#333333', 'ink_mute': '#767676',
+    'rule': '#111111', 'rule_soft': '#bbbbbb', 'hairline': '#dddddd',
+    'panel': '#f6f6f6', 'panel_rule': '#c4c4c4', 'accent': '#111111', 'alert': '#8b0000',
+    'font_body': '"Liberation Serif", "Georgia", "Times New Roman", serif',
+    'font_ui':   '"Liberation Sans", "Arial", "Helvetica", sans-serif',
+    'font_mono': '"Liberation Mono", "Courier New", monospace',
+    'lh': '1.45', 'radius': '2pt', 'masthead_scale': 2.4, 'track': '0.04em'
+  } %}
+{%- endif %}
+
+{#- Type scale, in points, derived once from the configured base size. #}
+{%- set fs_lead  = fs + 1 %}
+{%- set fs_sm    = fs - 1 %}
+{%- set fs_xs    = [fs - 2, 6]   | max %}
+{%- set fs_2xs   = [fs - 3, 5.5] | max %}
+{%- set fs_mast  = (fs * T.masthead_scale) | round | int %}
+
 <style>
   /* ── Reset ──────────────────────────────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ════════════════════════════════════════════════════════════════════════
-     TRADITIONAL THEME
-     Classic serif newspaper — Liberation Serif / Georgia
-     ════════════════════════════════════════════════════════════════════════ */
-  {% if config.theme == 'retro' %}
-  /* retro overrides below */
-  {% elif config.theme == 'readable' %}
-  /* readable overrides below */
-  {% else %}
+  /* ── Design tokens ──────────────────────────────────────────────────────── */
+  :root {
+    --paper: {{ T.paper }};
+    --ink: {{ T.ink }};
+    --ink-soft: {{ T.ink_soft }};
+    --ink-mute: {{ T.ink_mute }};
+    --rule: {{ T.rule }};
+    --rule-soft: {{ T.rule_soft }};
+    --hairline: {{ T.hairline }};
+    --panel: {{ T.panel }};
+    --panel-rule: {{ T.panel_rule }};
+    --accent: {{ T.accent }};
+    --alert: {{ T.alert }};
+
+    --font-body: {{ T.font_body }};
+    --font-ui: {{ T.font_ui }};
+    --font-mono: {{ T.font_mono }};
+
+    --fs-mast: {{ fs_mast }}pt;
+    --fs-lead: {{ fs_lead }}pt;
+    --fs-body: {{ fs }}pt;
+    --fs-sm: {{ fs_sm }}pt;
+    --fs-xs: {{ fs_xs }}pt;
+    --fs-2xs: {{ fs_2xs }}pt;
+
+    /* 2pt spacing scale — every margin/padding below is a multiple of it. */
+    --sp-1: 2pt; --sp-2: 4pt; --sp-3: 6pt; --sp-4: 8pt; --sp-5: 12pt; --sp-6: 16pt;
+    --radius: {{ T.radius }};
+  }
+
+  /* ── Page furniture ─────────────────────────────────────────────────────── */
+  @page {
+    background: {{ T.paper }};
+    @bottom-center {
+      content: counter(page) " / " counter(pages);
+      font-family: {{ T.font_ui }};
+      font-size: {{ fs_2xs }}pt;
+      color: {{ T.ink_mute }};
+      padding-top: 4pt;
+    }
+  }
 
   body {
-    font-family: "Liberation Serif", "Georgia", "Times New Roman", serif;
-    font-size: {{ config.font_size }}pt;
-    line-height: 1.45;
-    color: #111;
-    background: #fff;
+    font-family: var(--font-body);
+    font-size: var(--fs-body);
+    line-height: {{ T.lh }};
+    color: var(--ink);
+    background: var(--paper);
+    {% if config.theme == 'readable' %}letter-spacing: 0.025em; word-spacing: 0.08em;{% endif %}
   }
+
+  /* ── Masthead ───────────────────────────────────────────────────────────── */
   .masthead {
     text-align: center;
-    border-top: 3px solid #111;
-    border-bottom: 1px solid #111;
-    padding: 4pt 0;
-    margin-bottom: 8pt;
+    padding: var(--sp-2) 0 var(--sp-3);
+    margin-bottom: var(--sp-4);
+    {% if config.theme == 'retro' %}
+    border-top: 3px double var(--rule); border-bottom: 3px double var(--rule);
+    {% elif config.theme == 'readable' %}
+    border-top: 4px solid var(--rule); border-bottom: 2px solid var(--rule-soft);
+    {% else %}
+    border-top: 3px solid var(--rule); border-bottom: 1px solid var(--rule);
+    {% endif %}
   }
   .masthead h1 {
-    font-size: {{ (config.font_size * 2.4) | round | int }}pt;
-    font-weight: 900;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--fs-mast);
+    font-weight: {% if config.theme == 'readable' %}700{% else %}900{% endif %};
+    line-height: 1.1;
+    letter-spacing: {% if config.theme == 'retro' %}0.14em{% else %}0.05em{% endif %};
+    {% if config.theme != 'readable' %}text-transform: uppercase;{% endif %}
   }
-  .masthead .dateline { font-size: {{ config.font_size - 1 }}pt; letter-spacing: 0.04em; color: #444; margin-top: 2pt; }
-  .masthead .rule { border: none; border-top: 1px solid #111; margin: 4pt 0; }
+  .masthead .rule { border: none; border-top: 1px solid var(--rule-soft); margin: var(--sp-2) 0; }
+  .dateline {
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    letter-spacing: {{ T.track }};
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .dateline .sep { padding: 0 var(--sp-1); }
 
+  /* ── Section headers ────────────────────────────────────────────────────── */
   .section-header {
-    font-size: {{ config.font_size - 1.5 }}pt;
-    font-family: "Liberation Sans", "Arial", sans-serif;
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    border-top: 2px solid #111;
-    border-bottom: 1px solid #888;
-    padding: 4pt 0;
-    margin: 12pt 0 8pt;
-    color: #111;
+    color: {% if config.theme == 'traditional' or not config.theme %}var(--ink){% else %}var(--accent){% endif %};
+    margin: var(--sp-5) 0 var(--sp-3);
+    break-after: avoid;
+    {% if config.theme == 'retro' %}
+    border-top: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft);
+    background: var(--panel); padding: var(--sp-2);
+    {% elif config.theme == 'readable' %}
+    border-left: 4pt solid var(--rule-soft); background: var(--panel);
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    {% else %}
+    border-top: 2px solid var(--rule); border-bottom: 1px solid var(--rule-soft);
+    padding: var(--sp-2) 0;
+    {% endif %}
   }
-
-  .toc-section-label {
-    display: inline-block;
-    font-size: {{ config.font_size - 3 }}pt;
-    font-family: "Liberation Sans", "Arial", sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    background: #111;
-    color: #fff;
-    padding: 1pt 4pt;
-    border-radius: 1pt;
-  }
-
-  .weather-compact { width: 96pt; flex-shrink: 0; background: #f7f7f7; border: 1px solid #ccc; border-radius: 2pt; padding: 5pt 6pt; font-family: "Liberation Sans", "Arial", sans-serif; }
-  .wc-label { font-size: {{ config.font_size - 3 }}pt; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 2pt; margin-bottom: 4pt; }
-  .wc-temp { font-size: 18pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; }
-  .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #333; margin-bottom: 4pt; }
-  .wc-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #555; line-height: 1.7; }
-  .wc-hourly { margin-top: 5pt; border-top: 1px solid #ddd; padding-top: 3pt; }
-  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ config.font_size - 3 }}pt; color: #555; margin-bottom: 1.5pt; }
-  .wc-hour-row .h-time { font-weight: 700; color: #111; }
-
-  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ config.font_size - 1.5 }}pt; }
-  .toc-table thead th { font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #111; padding: 1pt 2pt 2pt; color: #444; text-align: left; }
-  .toc-table thead th.th-pg { text-align: right; }
-  .toc-table td { padding: 3pt 2pt; vertical-align: top; border-bottom: 1px dotted #ddd; line-height: 1.3; }
-  .toc-source { font-size: {{ config.font_size - 3 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #555; white-space: nowrap; padding-right: 4pt; width: 24%; }
-  .toc-title { font-size: {{ config.font_size - 1.5 }}pt; color: #111; }
-  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; color: #555; padding-left: 3pt; width: 14pt; }
-  a.toc-pageref { text-decoration: none; color: #555; }
-  a.toc-pageref::after { content: target-counter(attr(href), page); }
-  .toc-section-row td { padding-top: 5pt; padding-bottom: 2pt; border-bottom: none; }
-
-  .task-list { list-style: none; }
-  .task-item { display: flex; align-items: flex-start; gap: 4pt; padding: 3pt 0; border-bottom: 1px dotted #ddd; font-size: {{ config.font_size - 0.5 }}pt; }
-  .task-item:last-child { border-bottom: none; }
-  .task-checkbox { width: 8pt; height: 8pt; border: 1.5px solid #444; border-radius: 2pt; flex-shrink: 0; margin-top: 1pt; display: inline-block; }
-  .task-item.overdue .task-title { color: #900; }
-  .task-item .task-meta { font-size: {{ config.font_size - 2 }}pt; color: #888; }
-  .task-item .task-project { font-style: italic; }
-
-  .email-item { padding: 4pt 0; border-bottom: 1px dotted #ddd; font-size: {{ config.font_size - 1 }}pt; }
-  .email-item:last-child { border-bottom: none; }
-  .email-item .email-from { font-weight: bold; font-size: {{ config.font_size - 1.5 }}pt; color: #555; }
-  .email-item .email-subject { font-size: {{ config.font_size - 0.5 }}pt; }
-  .email-item .email-snippet { color: #555; font-size: {{ config.font_size - 1.5 }}pt; margin-top: 1pt; }
-
-  .feed-label { font-size: {{ config.font_size - 2 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #555; border-bottom: 1px solid #ddd; margin-bottom: 4pt; padding-bottom: 1pt; }
-  .article { break-inside: avoid; margin-bottom: 4pt; padding-bottom: 4pt; border-bottom: 1px dotted #ccc; }
-  .article:last-child { border-bottom: none; }
-  .article-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.25; margin-bottom: 1.5pt; }
-  .article-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #888; font-family: "Liberation Sans", "Arial", sans-serif; margin-bottom: 2pt; }
-  .article-body { font-size: {{ config.font_size - 1 }}pt; color: #222; line-height: 1.4; }
-  .article-body.ai-summary { font-style: italic; }
-
-  .footer { border-top: 1px solid #ccc; margin-top: 10pt; padding-top: 3pt; font-size: {{ config.font_size - 2.5 }}pt; color: #aaa; font-family: "Liberation Sans", "Arial", sans-serif; text-align: center; }
-  {% endif %}
-
-  /* ════════════════════════════════════════════════════════════════════════
-     RETRO THEME
-     80s tech newsletter — Liberation Mono, warm amber on cream
-     ════════════════════════════════════════════════════════════════════════ */
   {% if config.theme == 'retro' %}
-  body {
-    font-family: "Liberation Mono", "Courier New", "Courier", monospace;
-    font-size: {{ config.font_size }}pt;
-    line-height: 1.5;
-    color: #1a0a00;
-    background: #fdf6e3;
-  }
-  .masthead {
-    text-align: center;
-    border-top: 3px double #5a3e1b;
-    border-bottom: 3px double #5a3e1b;
-    padding: 4pt 0;
-    margin-bottom: 8pt;
-    background: #fdf6e3;
-  }
-  .masthead h1 {
-    font-size: {{ (config.font_size * 2.1) | round | int }}pt;
-    font-weight: 900;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #2a1000;
-  }
-  .masthead .dateline { font-size: {{ config.font_size - 1 }}pt; color: #7a5030; margin-top: 3pt; letter-spacing: 0.06em; }
-  .masthead .rule { border: none; border-top: 1px solid #8b6840; margin: 3pt 0; }
-
-  .section-header {
-    font-size: {{ config.font_size - 1 }}pt;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #8b4513;
-    border: none;
-    border-top: 1px solid #c8a87a;
-    border-bottom: 1px solid #c8a87a;
-    padding: 4pt 4pt;
-    margin: 12pt 0 8pt;
-    background: #fef0d0;
-  }
   .section-header::before { content: "[ "; }
   .section-header::after  { content: " ]"; }
+  {% endif %}
+  .section-header .count { font-weight: 400; color: var(--ink-mute); letter-spacing: 0.06em; }
+  .section-header:first-child { margin-top: 0; }
 
-  .toc-section-label {
+  /* ── Front page: contents + forecast, side by side ──────────────────────── */
+  /* A table beats flex here — WeasyPrint's table layout is the reliable one. */
+  .front-page { margin-bottom: var(--sp-4); }
+  .front-grid { display: table; width: 100%; table-layout: fixed; }
+  .toc-panel { display: table-cell; vertical-align: top; }
+  .wx-panel  { display: table-cell; vertical-align: top; width: 118pt; padding-left: var(--sp-4); }
+
+  /* ── Table of contents ──────────────────────────────────────────────────── */
+  .toc-table { width: 100%; border-collapse: collapse; }
+  .toc-table thead th {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    text-align: left;
+    border-bottom: 1.5px solid var(--rule);
+    padding: 0 var(--sp-1) var(--sp-1);
+  }
+  .toc-table thead th.th-pg { text-align: right; }
+  .toc-table td {
+    padding: var(--sp-1) var(--sp-1);
+    vertical-align: top;
+    line-height: 1.35;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .toc-table tr:last-child td { border-bottom: none; }
+  .toc-source {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    white-space: nowrap;
+    width: 26%;
+    padding-right: var(--sp-2);
+  }
+  .toc-title { font-size: var(--fs-sm); color: var(--ink); }
+  .toc-pg {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
+    text-align: right;
+    white-space: nowrap;
+    width: 16pt;
+  }
+  a.toc-pageref { text-decoration: none; color: var(--ink-mute); }
+  a.toc-pageref::after { content: target-counter(attr(href), page); }
+  .toc-table tr { break-inside: avoid; }
+  .toc-group { break-after: avoid; }
+  .toc-group td {
+    padding-top: var(--sp-3);
+    padding-bottom: 0.5pt;
+    border-bottom: none;
+  }
+  .toc-group:first-child td { padding-top: var(--sp-1); }
+  .toc-group-label {
     display: inline-block;
-    font-size: {{ config.font_size - 2 }}pt;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    background: #8b4513;
-    color: #fdf6e3;
-    padding: 1pt 4pt;
+    background: var(--accent);
+    color: var(--paper);
+    padding: 0.5pt var(--sp-2);
+    border-radius: var(--radius);
   }
 
-  .weather-compact { width: 96pt; flex-shrink: 0; background: #fef0d0; border: 1px solid #c8a87a; padding: 5pt 6pt; font-family: "Liberation Mono", "Courier New", monospace; }
-  .wc-label { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8b4513; border-bottom: 1px solid #c8a87a; padding-bottom: 2pt; margin-bottom: 4pt; }
-  .wc-temp { font-size: 16pt; font-weight: 900; line-height: 1; margin-bottom: 1pt; color: #5a2000; }
-  .wc-condition { font-size: {{ config.font_size - 1 }}pt; color: #3d2000; margin-bottom: 4pt; }
-  .wc-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #7a5030; line-height: 1.7; }
-  .wc-hourly { margin-top: 5pt; border-top: 1px solid #c8a87a; padding-top: 3pt; }
-  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ config.font_size - 3 }}pt; color: #7a5030; margin-bottom: 1.5pt; }
-  .wc-hour-row .h-time { font-weight: 700; color: #3d2000; }
-
-  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ config.font_size - 1.5 }}pt; }
-  .toc-table thead th { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #8b4513; padding: 1pt 2pt 2pt; color: #8b4513; text-align: left; }
-  .toc-table thead th.th-pg { text-align: right; }
-  .toc-table td { padding: 3pt 2pt; vertical-align: top; border-bottom: 1px dotted #c8a87a; line-height: 1.35; }
-  .toc-source { font-size: {{ config.font_size - 2.5 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8b4513; white-space: nowrap; padding-right: 4pt; width: 24%; }
-  .toc-title { font-size: {{ config.font_size - 1.5 }}pt; color: #1a0a00; }
-  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ config.font_size - 2.5 }}pt; color: #8b4513; padding-left: 3pt; width: 14pt; }
-  a.toc-pageref { text-decoration: none; color: #8b4513; }
-  a.toc-pageref::after { content: target-counter(attr(href), page); }
-  .toc-section-row td { padding-top: 5pt; padding-bottom: 2pt; border-bottom: none; }
-
-  .task-list { list-style: none; }
-  .task-item { display: flex; align-items: flex-start; gap: 4pt; padding: 3pt 0; border-bottom: 1px dotted #c8a87a; font-size: {{ config.font_size - 0.5 }}pt; }
-  .task-item:last-child { border-bottom: none; }
-  .task-checkbox { width: 8pt; height: 8pt; border: 1.5px solid #8b4513; flex-shrink: 0; margin-top: 1pt; display: inline-block; }
-  .task-item.overdue .task-title { color: #8b0000; }
-  .task-item .task-meta { font-size: {{ config.font_size - 2 }}pt; color: #7a5030; }
-  .task-item .task-project { font-style: italic; }
-
-  .email-item { padding: 4pt 0; border-bottom: 1px dotted #c8a87a; font-size: {{ config.font_size - 1 }}pt; }
-  .email-item:last-child { border-bottom: none; }
-  .email-item .email-from { font-weight: bold; color: #8b4513; }
-  .email-item .email-subject { }
-  .email-item .email-snippet { color: #7a5030; font-size: {{ config.font_size - 1.5 }}pt; margin-top: 1pt; }
-
-  .feed-label { font-size: {{ config.font_size - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8b4513; border-bottom: 1px solid #c8a87a; margin-bottom: 4pt; padding-bottom: 1pt; }
-  .article { break-inside: avoid; margin-bottom: 4pt; padding-bottom: 4pt; border-bottom: 1px dotted #c8a87a; }
-  .article:last-child { border-bottom: none; }
-  .article-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.3; margin-bottom: 1.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
-  .article-meta { font-size: {{ config.font_size - 2.5 }}pt; color: #7a5030; margin-bottom: 2pt; }
-  .article-body { font-size: {{ config.font_size - 1 }}pt; color: #3d2000; line-height: 1.5; }
-  .article-body.ai-summary { font-style: italic; color: #7a5030; }
-
-  .footer { border-top: 2px solid #c8a87a; margin-top: 10pt; padding-top: 3pt; font-size: {{ config.font_size - 2.5 }}pt; color: #c8a87a; text-align: center; letter-spacing: 0.06em; }
-  {% endif %}
-
-  /* ════════════════════════════════════════════════════════════════════════
-     READABLE THEME
-     Dyslexia-friendly — OpenDyslexic / DejaVu Sans, warm cream, generous spacing
-     ════════════════════════════════════════════════════════════════════════ */
-  {% if config.theme == 'readable' %}
-  {% set fs = [config.font_size, 10] | max %}
-  body {
-    font-family: "OpenDyslexic", "DejaVu Sans", "Verdana", "Arial", sans-serif;
-    font-size: {{ fs }}pt;
-    line-height: 1.7;
-    letter-spacing: 0.025em;
-    word-spacing: 0.08em;
-    color: #1a1208;
-    background: #faf8f2;
+  /* ── Forecast panel ─────────────────────────────────────────────────────── */
+  .wx {
+    background: var(--panel);
+    border: 1px solid var(--panel-rule);
+    border-radius: var(--radius);
+    padding: var(--sp-3);
+    font-family: var(--font-ui);
+    color: var(--ink-soft);
   }
-  .masthead {
-    text-align: center;
-    border-top: 4px solid #6b5c42;
-    border-bottom: 2px solid #c8b89a;
-    padding: 6pt 0 7pt;
-    margin-bottom: 8pt;
-    background: #faf8f2;
-  }
-  .masthead h1 {
-    font-size: {{ (fs * 2.0) | round | int }}pt;
+  .wx-kicker {
+    font-size: var(--fs-2xs);
     font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .wx-place {
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
     letter-spacing: 0.04em;
-    color: #2d2416;
+    margin-top: 0.5pt;
   }
-  .masthead .dateline { font-size: {{ fs - 1 }}pt; color: #6b5c42; margin-top: 3pt; letter-spacing: 0.02em; }
-  .masthead .rule { border: none; border-top: 1px solid #c8b89a; margin: 4pt 0; }
+  .wx-head { border-bottom: 1px solid var(--panel-rule); padding-bottom: var(--sp-2); }
 
-  .section-header {
-    font-size: {{ fs - 1 }}pt;
-    font-weight: 700;
+  .wx-hero { display: table; width: 100%; margin: var(--sp-3) 0 var(--sp-2); }
+  .wx-hero-icon { display: table-cell; width: 30pt; vertical-align: middle; color: var(--ink); }
+  .wx-hero-temps { display: table-cell; vertical-align: middle; padding-left: var(--sp-2); }
+  .wx-high { font-size: {{ (fs * 1.9) | round | int }}pt; font-weight: 700; line-height: 1; color: var(--ink); }
+  .wx-low  { font-size: var(--fs-sm); color: var(--ink-mute); }
+  .wx-condition {
+    font-size: var(--fs-sm);
+    color: var(--ink-soft);
+    line-height: 1.3;
+    margin-bottom: var(--sp-2);
+  }
+
+  .wx-facts { width: 100%; border-collapse: collapse; font-size: var(--fs-2xs); }
+  .wx-facts th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--ink-mute);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #4a3d2d;
-    border: none;
-    border-left: 4pt solid #c8b89a;
-    padding: 3pt 0 3pt 6pt;
-    margin: 10pt 0 5pt;
-    background: #f0ece2;
-    border-radius: 0 3pt 3pt 0;
+    padding: 0.75pt 0;
   }
+  .wx-facts td { text-align: right; color: var(--ink); padding: 0.75pt 0; white-space: nowrap; }
 
-  .toc-section-label {
-    display: inline-block;
-    font-size: {{ fs - 2 }}pt;
+  .wx-block { margin-top: var(--sp-3); border-top: 1px solid var(--panel-rule); padding-top: var(--sp-2); }
+  .wx-block-label {
+    font-size: var(--fs-2xs);
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    background: #6b5c42;
-    color: #faf8f2;
-    padding: 1.5pt 5pt;
-    border-radius: 3pt;
+    color: var(--ink-mute);
+    margin-bottom: var(--sp-1);
   }
+  .wx-parts { width: 100%; border-collapse: collapse; font-size: var(--fs-2xs); }
+  .wx-parts td { padding: 1pt 0; vertical-align: middle; }
+  .wx-parts .p-label { color: var(--ink-mute); letter-spacing: 0.04em; }
+  .wx-parts .p-icon { width: 12pt; text-align: center; color: var(--ink); }
+  .wx-parts .p-temp { text-align: right; color: var(--ink); font-weight: 700; white-space: nowrap; }
+  .wx-parts .p-precip { text-align: right; width: 20pt; color: var(--ink-mute); white-space: nowrap; }
 
-  .weather-compact { width: 96pt; flex-shrink: 0; background: #f0ece2; border: 1.5px solid #c8b89a; border-radius: 6pt; padding: 6pt 7pt; font-family: "OpenDyslexic", "DejaVu Sans", "Verdana", sans-serif; }
-  .wc-label { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b5c42; border-bottom: 1px solid #c8b89a; padding-bottom: 2pt; margin-bottom: 5pt; }
-  .wc-temp { font-size: 18pt; font-weight: 700; line-height: 1; margin-bottom: 2pt; color: #2d2416; }
-  .wc-condition { font-size: {{ fs - 1 }}pt; color: #4a3d2d; margin-bottom: 5pt; }
-  .wc-meta { font-size: {{ fs - 2.5 }}pt; color: #6b5c42; line-height: 1.8; }
-  .wc-hourly { margin-top: 5pt; border-top: 1px solid #c8b89a; padding-top: 4pt; }
-  .wc-hour-row { display: flex; justify-content: space-between; font-size: {{ fs - 3 }}pt; color: #6b5c42; margin-bottom: 2pt; }
-  .wc-hour-row .h-time { font-weight: 700; color: #2d2416; }
+  .wx-tomorrow { display: table; width: 100%; font-size: var(--fs-2xs); }
+  .wx-tomorrow .t-icon { display: table-cell; width: 14pt; vertical-align: middle; color: var(--ink); }
+  .wx-tomorrow .t-text { display: table-cell; vertical-align: middle; padding-left: var(--sp-1); color: var(--ink-mute); line-height: 1.35; }
+  .wx-tomorrow .t-temps { color: var(--ink); font-weight: 700; }
 
-  .toc-table { width: 100%; border-collapse: collapse; font-size: {{ fs - 1 }}pt; }
-  .toc-table thead th { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid #c8b89a; padding: 2pt 2pt 3pt; color: #6b5c42; text-align: left; }
-  .toc-table thead th.th-pg { text-align: right; }
-  .toc-table td { padding: 4pt 2pt; vertical-align: top; border-bottom: 1px solid #e8e0d0; line-height: 1.5; }
-  .toc-source { font-size: {{ fs - 2.5 }}pt; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6b5c42; white-space: nowrap; padding-right: 4pt; width: 24%; }
-  .toc-title { font-size: {{ fs - 1 }}pt; color: #1a1208; line-height: 1.4; }
-  .toc-pg { text-align: right; white-space: nowrap; font-size: {{ fs - 2 }}pt; color: #6b5c42; padding-left: 3pt; width: 16pt; }
-  a.toc-pageref { text-decoration: none; color: #6b5c42; }
-  a.toc-pageref::after { content: target-counter(attr(href), page); }
-  .toc-section-row td { padding-top: 6pt; padding-bottom: 2pt; border-bottom: none; }
+  .wx-icon { display: inline-block; vertical-align: middle; }
 
+  /* ── Tasks ──────────────────────────────────────────────────────────────── */
   .task-list { list-style: none; }
-  .task-item { display: flex; align-items: flex-start; gap: 5pt; padding: 4pt 0; border-bottom: 1px solid #e8e0d0; font-size: {{ fs }}pt; }
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--hairline);
+    break-inside: avoid;
+  }
   .task-item:last-child { border-bottom: none; }
-  .task-checkbox { width: 9pt; height: 9pt; border: 2px solid #6b5c42; border-radius: 3pt; flex-shrink: 0; margin-top: 2pt; display: inline-block; }
-  .task-item.overdue .task-title { color: #8b2000; }
-  .task-item .task-meta { font-size: {{ fs - 2 }}pt; color: #8b7a5c; }
-  .task-item .task-project { font-style: italic; }
+  .task-checkbox {
+    width: 8pt; height: 8pt;
+    border: 1.25pt solid var(--ink-soft);
+    border-radius: var(--radius);
+    flex-shrink: 0;
+    margin-top: 1.5pt;
+    display: inline-block;
+  }
+  .task-title { font-size: var(--fs-body); line-height: 1.3; }
+  .task-item.overdue .task-title { color: var(--alert); font-weight: 700; }
+  .task-meta {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
+    letter-spacing: 0.03em;
+    margin-top: 0.5pt;
+  }
+  .task-project { font-style: italic; }
+  .task-note { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
 
-  .email-item { padding: 4pt 0; border-bottom: 1px solid #e8e0d0; font-size: {{ fs - 0.5 }}pt; }
+  /* ── Email ──────────────────────────────────────────────────────────────── */
+  .email-item {
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--hairline);
+    break-inside: avoid;
+  }
   .email-item:last-child { border-bottom: none; }
-  .email-item .email-from { font-weight: bold; color: #4a3d2d; }
-  .email-item .email-subject { font-size: {{ fs }}pt; line-height: 1.5; }
-  .email-item .email-snippet { color: #6b5c42; font-size: {{ fs - 1.5 }}pt; margin-top: 2pt; line-height: 1.6; }
+  .email-from {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .email-subject { font-size: var(--fs-body); line-height: 1.3; margin-top: 0.5pt; }
+  .email-snippet { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
+  .email-date { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); margin-top: var(--sp-1); }
 
-  .feed-label { font-size: {{ fs - 2 }}pt; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b5c42; border-bottom: 2px solid #c8b89a; margin-bottom: 4pt; padding-bottom: 2pt; }
-  .article { break-inside: avoid; margin-bottom: 8pt; padding-bottom: 4pt; border-bottom: 1px solid #e8e0d0; }
-  .article:last-child { border-bottom: none; }
-  .article-title { font-size: {{ fs + 0.5 }}pt; font-weight: 700; line-height: 1.4; margin-bottom: 2pt; color: #1a1208; }
-  .article-meta { font-size: {{ fs - 2.5 }}pt; color: #8b7a5c; margin-bottom: 3pt; }
-  .article-body { font-size: {{ fs - 0.5 }}pt; color: #2d2416; line-height: 1.75; letter-spacing: 0.025em; word-spacing: 0.08em; }
-  .article-body.ai-summary { font-style: italic; color: #6b5c42; }
-
-  .footer { border-top: 1px solid #c8b89a; margin-top: 12pt; padding-top: 4pt; font-size: {{ fs - 2.5 }}pt; color: #8b7a5c; text-align: center; }
+  /* ── News ───────────────────────────────────────────────────────────────── */
+  {% if config.columns == 2 %}
+  .articles-grid { column-count: 2; column-gap: var(--sp-5); column-rule: 1px solid var(--hairline); }
   {% endif %}
+  .feed-section { break-inside: avoid; margin-bottom: var(--sp-4); }
+  .feed-label {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    border-bottom: 1px solid var(--rule-soft);
+    padding-bottom: var(--sp-1);
+    margin-bottom: var(--sp-2);
+  }
+  .article {
+    break-inside: avoid;
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .article:last-child { border-bottom: none; margin-bottom: 0; }
+  .article-title {
+    font-size: var(--fs-body);
+    font-weight: 700;
+    line-height: 1.25;
+    {% if config.theme == 'retro' %}text-transform: uppercase; letter-spacing: 0.03em;{% endif %}
+  }
+  .article-meta {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
+    letter-spacing: 0.03em;
+    margin: 0.5pt 0 var(--sp-1);
+  }
+  .article-body { font-size: var(--fs-sm); color: var(--ink-soft); }
+  .article-body.ai-summary { font-style: italic; }
+  .article-figure { text-align: center; margin: var(--sp-2) 0; }
+  .article-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 
-  /* ── Common layout (all themes) ─────────────────────────────────────────── */
-  /* No forced page break — content flows from the masthead */
-  .front-page { margin-bottom: 8pt; }
+  /* ── Learning ───────────────────────────────────────────────────────────── */
+  .lesson { break-inside: avoid; padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); border-bottom: 1px solid var(--hairline); }
+  .lesson:last-child { border-bottom: none; margin-bottom: 0; }
+  .lesson-meta {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .lesson-title { font-size: var(--fs-body); font-weight: 700; line-height: 1.3; margin: 0.5pt 0 var(--sp-1); }
+  .lesson-body { font-size: var(--fs-sm); color: var(--ink-soft); white-space: pre-wrap; }
 
-  /* Learning lessons */
-  .lesson { break-inside: avoid; margin-bottom: 6pt; padding-bottom: 5pt; border-bottom: 1px dotted #ccc; }
-  .lesson:last-child { border-bottom: none; }
-  .lesson-meta { font-size: 7pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 2pt; }
-  .lesson-title { font-size: {{ config.font_size }}pt; font-weight: bold; line-height: 1.3; margin-bottom: 3pt; }
-  .lesson-body { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; white-space: pre-wrap; }
+  /* ── Shell output ───────────────────────────────────────────────────────── */
+  .shell-block { break-inside: avoid; margin-bottom: var(--sp-3); }
+  .shell-block:last-child { margin-bottom: 0; }
+  .shell-name {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: var(--sp-1);
+  }
+  .shell-output {
+    font-family: var(--font-mono);
+    font-size: {{ [fs - 2, 6] | max }}pt;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    background: var(--panel);
+    border: 1px solid var(--panel-rule);
+    border-radius: var(--radius);
+    padding: var(--sp-2) var(--sp-3);
+  }
 
-  /* Shell outputs */
-  .shell-block { break-inside: avoid; margin-bottom: 6pt; padding-bottom: 5pt; border-bottom: 1px dotted #ccc; }
-  .shell-block:last-child { border-bottom: none; }
-  .shell-name { font-size: 7pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 3pt; }
-  .shell-output { font-family: "Liberation Mono", "Courier New", monospace; font-size: {{ [config.font_size - 2, 6] | max }}pt; line-height: 1.4; white-space: pre-wrap; overflow-wrap: break-word; background: #f7f7f7; padding: 4pt 5pt; border: 1px solid #e0e0e0; border-radius: 2pt; }
+  /* ── Wikipedia · Wikiquote · Word of the day ────────────────────────────── */
+  .wikipedia-block, .wikiquote-block, .wotd-block, .sudoku-wrap { break-inside: avoid; }
+  .wikipedia-figure { text-align: center; margin: var(--sp-2) 0; }
+  .wikipedia-thumb { max-width: 120pt; max-height: 90pt; margin: 0 auto; border: 1px solid var(--rule-soft); }
+  .wikipedia-extract { font-size: var(--fs-sm); color: var(--ink-soft); }
 
-  /* Wikipedia */
-  .wikipedia-block { break-inside: avoid; }
-  .wikipedia-thumb { display: block; max-width: 120pt; max-height: 90pt; margin: 0 auto 6pt; object-fit: cover; border: 1px solid #ddd; }
-  .wikipedia-extract { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
+  .wikiquote-quote { font-size: var(--fs-lead); font-style: italic; line-height: 1.55; }
+  .wikiquote-attr {
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    color: var(--ink-mute);
+    text-align: right;
+    margin-top: var(--sp-2);
+  }
 
-  /* Wikiquote */
-  .wikiquote-block { break-inside: avoid; }
-  .wikiquote-quote { font-size: {{ config.font_size + 1 }}pt; font-style: italic; line-height: 1.65; margin-bottom: 4pt; }
-  .wikiquote-attr { font-size: {{ config.font_size - 1.5 }}pt; color: #555; text-align: right; }
+  .wotd-word { font-size: {{ fs + 3 }}pt; font-weight: 700; line-height: 1.1; }
+  .wotd-label {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin: 0.5pt 0 var(--sp-2);
+  }
+  .wotd-definition { font-size: var(--fs-sm); color: var(--ink-soft); }
 
-  /* Word of the Day */
-  .wotd-block { break-inside: avoid; }
-  .wotd-word { font-size: {{ config.font_size + 3 }}pt; font-weight: 700; margin-bottom: 1pt; }
-  .wotd-label { font-size: {{ config.font_size - 2.5 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #888; margin-bottom: 4pt; }
-  .wotd-definition { font-size: {{ config.font_size - 1 }}pt; line-height: 1.5; color: #222; }
-
-  /* Source error notice */
-  .source-notice { break-inside: avoid; border: 1px solid #ccc; background: #f9f9f9; border-radius: 2pt; padding: 5pt 7pt; }
-  .source-notice-label { font-size: {{ config.font_size - 2 }}pt; font-family: "Liberation Sans", "Arial", sans-serif; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 2pt; }
-  .source-notice-body { font-size: {{ config.font_size - 1 }}pt; color: #555; font-style: italic; }
-
-  /* Sudoku grid */
-  .sudoku-wrap { break-inside: avoid; }
-  .sudoku-grid { border-collapse: collapse; margin: 4pt auto; }
+  /* ── Sudoku ─────────────────────────────────────────────────────────────── */
+  .sudoku-grid { border-collapse: collapse; margin: var(--sp-2) auto; }
   .sudoku-grid td {
     width: 16pt; height: 16pt;
     text-align: center; vertical-align: middle;
-    font-family: "Liberation Sans", "Arial", sans-serif;
-    font-size: {{ [config.font_size - 1, 7] | max }}pt;
+    font-family: var(--font-ui);
+    font-size: {{ [fs - 1, 7] | max }}pt;
     font-weight: 600;
-    border: 0.5pt solid #999;
+    border: 0.5pt solid var(--rule-soft);
+    color: var(--ink);
   }
-  .sudoku-grid td.given { color: #111; }
-  .sudoku-grid td.empty { color: #fff; }
-  /* Bold borders between 3x3 boxes */
-  .sudoku-grid td.box-right  { border-right:  2pt solid #111; }
-  .sudoku-grid td.box-bottom { border-bottom: 2pt solid #111; }
-  .sudoku-grid tr:first-child td { border-top:    2pt solid #111; }
-  .sudoku-grid tr:last-child  td { border-bottom: 2pt solid #111; }
-  .sudoku-grid td:first-child    { border-left:   2pt solid #111; }
-  .sudoku-grid td:last-child     { border-right:  2pt solid #111; }
+  .sudoku-grid td.box-right  { border-right:  1.5pt solid var(--ink); }
+  .sudoku-grid td.box-bottom { border-bottom: 1.5pt solid var(--ink); }
+  .sudoku-grid tr:first-child td { border-top:    1.5pt solid var(--ink); }
+  .sudoku-grid tr:last-child  td { border-bottom: 1.5pt solid var(--ink); }
+  .sudoku-grid td:first-child { border-left:  1.5pt solid var(--ink); }
+  .sudoku-grid td:last-child  { border-right: 1.5pt solid var(--ink); }
 
-  /* Layout: prevent orphan section headers */
-  .section-header { break-after: avoid; }
+  /* ── Jobs ───────────────────────────────────────────────────────────────── */
+  .job-item {
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--hairline);
+    break-inside: avoid;
+  }
+  .job-item:last-child { border-bottom: none; margin-bottom: 0; }
+  .job-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
+  .job-title { font-size: var(--fs-body); font-weight: 700; line-height: 1.25; flex: 1; }
+  .job-rating { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); white-space: nowrap; flex-shrink: 0; }
+  .job-meta {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
+    letter-spacing: 0.03em;
+    margin: 0.5pt 0 var(--sp-1);
+  }
+  .job-salary { font-size: var(--fs-sm); font-style: italic; color: var(--ink-soft); }
+  .job-body { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
+  .job-url { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); word-break: break-all; margin-top: var(--sp-1); }
+
+  /* ── Source error notice ────────────────────────────────────────────────── */
+  .source-notice {
+    break-inside: avoid;
+    background: var(--panel);
+    border: 1px solid var(--panel-rule);
+    border-radius: var(--radius);
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .source-notice-label {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: var(--sp-1);
+  }
+  .source-notice-body { font-size: var(--fs-sm); font-style: italic; color: var(--ink-soft); }
+
+  /* ── Footer ─────────────────────────────────────────────────────────────── */
+  .footer {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    text-align: center;
+    border-top: 1px solid var(--rule-soft);
+    margin-top: var(--sp-5);
+    padding-top: var(--sp-2);
+  }
+
   p { orphans: 2; widows: 2; }
-
-  /* Table layout for masthead sidebar — much more reliable than flex in WeasyPrint */
-  .front-grid { display: table; width: 100%; margin-top: 4pt; }
-  .toc-panel  { display: table-cell; vertical-align: top; }
-  .weather-compact { display: table-cell !important; vertical-align: top; padding-left: 10pt; }
-  .feed-section { break-inside: avoid; margin-bottom: 6pt; }
-
-  {% if config.columns == 2 %}
-  .articles-grid { column-count: 2; column-gap: 10pt; column-rule: 1px solid #ccc; }
-  {% else %}
-  .articles-grid { column-count: 1; }
-  {% endif %}
-
-  /* ── Jobs section ───────────────────────────────────────────────── */
-  .job-item { padding: 4pt 0; border-bottom: 1px dotted #ddd; break-inside: avoid; }
-  .job-item:last-child { border-bottom: none; }
-  .job-header { display: flex; justify-content: space-between; align-items: baseline; gap: 4pt; }
-  .job-title { font-weight: bold; font-size: {{ config.font_size }}pt; flex: 1; }
-  .job-rating { font-size: {{ config.font_size - 1 }}pt; color: #555; white-space: nowrap; flex-shrink: 0; }
-  .job-meta { font-size: {{ config.font_size - 1.5 }}pt; color: #555; margin: 1pt 0; }
-  .job-salary { font-size: {{ config.font_size - 1.5 }}pt; color: #333; font-style: italic; }
-  .job-body { font-size: {{ config.font_size - 1 }}pt; margin: 2pt 0; line-height: 1.35; }
-  .job-url { font-size: {{ config.font_size - 2.5 }}pt; color: #777; word-break: break-all; margin-top: 1pt; }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════ FRONT PAGE ═══════════════════════ -->
+{#- ═══════════════════════════════════════════════════════════════════════════
+    WEATHER ICONS
+    Line art rather than emoji: emoji fall back to a missing glyph in the PDF
+    font stack and never print well on e-ink. These inherit currentColor, so
+    every theme gets icons in its own ink.
+    ═══════════════════════════════════════════════════════════════════════ #}
+{%- macro wx_icon(slug, size) -%}
+{%- set s = size | default(14) -%}
+<svg class="wx-icon" width="{{ s }}pt" height="{{ s }}pt" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  {%- if slug == 'clear' %}
+  <circle cx="12" cy="12" r="4.6"/>
+  <path d="M12 1.4v2.6M12 20v2.6M1.4 12h2.6M20 12h2.6M4.4 4.4l1.9 1.9M17.7 17.7l1.9 1.9M19.6 4.4l-1.9 1.9M6.3 17.7l-1.9 1.9"/>
+  {%- elif slug == 'mostly-clear' %}
+  <circle cx="9" cy="9" r="3.6"/>
+  <path d="M9 2.6v1.9M2.6 9h1.9M4.5 4.5l1.3 1.3M13.5 4.5l-1.3 1.3"/>
+  <path d="M10.5 19.5h7.8a3.2 3.2 0 0 0 .4-6.4 4.4 4.4 0 0 0-8.2-1.1 3.8 3.8 0 0 0 0 7.5z"/>
+  {%- elif slug == 'partly-cloudy' %}
+  <circle cx="8.5" cy="8" r="3.2"/>
+  <path d="M8.5 2.2v1.7M2.6 8h1.7M4.3 3.8l1.2 1.2"/>
+  <path d="M9 20h8.4a3.4 3.4 0 0 0 .4-6.8 4.7 4.7 0 0 0-8.8-1.2A4 4 0 0 0 9 20z"/>
+  {%- elif slug == 'overcast' %}
+  <path d="M6.4 13.6a4 4 0 0 1 7.4-1.6 3 3 0 0 1 3.6 2.4"/>
+  <path d="M7.5 20h9.4a3.6 3.6 0 0 0 .4-7.2 5 5 0 0 0-9.4-1.3A4.2 4.2 0 0 0 7.5 20z"/>
+  {%- elif slug == 'fog' %}
+  <path d="M7.5 13.5h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3 4.1 4.1 0 0 0 .4 8.1z"/>
+  <path d="M4 17h16M6 20h12"/>
+  {%- elif slug == 'drizzle' %}
+  <path d="M7.5 15h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3A4.1 4.1 0 0 0 7.5 15z"/>
+  <path d="M9 18.4v.8M13 18.4v.8M17 18.4v.8M11 21v.8M15 21v.8"/>
+  {%- elif slug == 'rain' %}
+  <path d="M7.5 14.5h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3 4.1 4.1 0 0 0-.4 8.1z"/>
+  <path d="M9.5 17.5l-1 3.2M14 17.5l-1 3.2M18.5 17.5l-1 3.2"/>
+  {%- elif slug == 'showers' %}
+  <path d="M7.5 13.5h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3 4.1 4.1 0 0 0-.4 8.1z"/>
+  <path d="M8.5 16.4l-1.6 4M13 16.4l-1.6 4M17.5 16.4l-1.6 4"/>
+  {%- elif slug == 'snow' %}
+  <path d="M7.5 14h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3A4.1 4.1 0 0 0 7.5 14z"/>
+  <path d="M9 18h.02M13 18h.02M17 18h.02M11 21h.02M15 21h.02" stroke-width="2.2"/>
+  {%- elif slug == 'thunder' %}
+  <path d="M7.5 13.5h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3 4.1 4.1 0 0 0-.4 8.1z"/>
+  <path d="M13.5 16.2l-3.6 4.2h3.4l-1.1 3.1"/>
+  {%- else %}
+  <path d="M7.5 16h9.4a3.4 3.4 0 0 0 .4-6.8 5 5 0 0 0-9.4-1.3A4.1 4.1 0 0 0 7.5 16z"/>
+  {%- endif %}
+</svg>
+{%- endmacro -%}
+
+{#- A contents row: source label, headline, page reference. #}
+{%- macro toc_row(source, title, anchor) -%}
+<tr>
+  <td class="toc-source">{{ source }}</td>
+  <td class="toc-title">{{ title }}</td>
+  <td class="toc-pg"><a href="#{{ anchor }}" class="toc-pageref"></a></td>
+</tr>
+{%- endmacro -%}
+
+{%- macro toc_group(label) -%}
+<tr class="toc-group"><td colspan="3"><span class="toc-group-label">{{ label }}</span></td></tr>
+{%- endmacro -%}
+
+<!-- ═══════════════════════════ FRONT PAGE ═══════════════════════════ -->
 <div class="front-page">
 
   <div class="masthead">
     <h1>{{ config.newspaper_name }}</h1>
     <hr class="rule">
-    <div class="dateline">{{ generated_at }} &nbsp;·&nbsp; {{ generated_time }}</div>
+    <div class="dateline">
+      {{ generated_at }}<span class="sep">·</span>{{ generated_time }}
+      {%- if edition_name %}<span class="sep">·</span>{{ edition_name }} Edition{% endif %}
+    </div>
   </div>
 
   <div class="front-grid">
 
-    <!-- TABLE OF CONTENTS -->
+    <!-- CONTENTS -->
     <div class="toc-panel">
-      <div class="section-header" style="margin-top: 0;">Contents</div>
+      <div class="section-header">Contents</div>
       <table class="toc-table">
         <thead>
           <tr>
@@ -430,180 +629,162 @@
         <tbody>
 
           {% if tasks %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Tasks</span></td></tr>
-          <tr>
-            <td class="toc-source">Today</td>
-            <td class="toc-title">
-              {{ tasks | length }} task{{ 's' if tasks | length != 1 else '' }}
-              {%- set oc = tasks | selectattr("meta.overdue") | list | length %}
-              {%- if oc %} · <strong>{{ oc }} overdue</strong>{% endif %}
-            </td>
-            <td class="toc-pg"><a href="#section-tasks" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Tasks') }}
+          {%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
+          {{ toc_row('Today', tasks | length ~ ' task' ~ ('s' if tasks | length != 1 else '') ~ (' · ' ~ overdue_count ~ ' overdue' if overdue_count else ''), 'section-tasks') }}
           {% endif %}
 
           {% if emails %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Email</span></td></tr>
-          <tr>
-            <td class="toc-source">Inbox</td>
-            <td class="toc-title">{{ emails | length }} message{{ 's' if emails | length != 1 else '' }}</td>
-            <td class="toc-pg"><a href="#section-emails" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Email') }}
+          {{ toc_row('Inbox', emails | length ~ ' message' ~ ('s' if emails | length != 1 else ''), 'section-emails') }}
           {% endif %}
 
           {% if lessons %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Learning</span></td></tr>
-          {% for lesson in lessons %}
-          <tr>
-            <td class="toc-source">{{ lesson.source }}</td>
-            <td class="toc-title">{{ lesson.title }}</td>
-            <td class="toc-pg"><a href="#section-learning" class="toc-pageref"></a></td>
-          </tr>
-          {% endfor %}
+          {{ toc_group('Learning') }}
+          {% for lesson in lessons %}{{ toc_row(lesson.source, lesson.title, 'section-learning') }}{% endfor %}
           {% endif %}
 
           {% if shell_outputs %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Status</span></td></tr>
-          {% for s in shell_outputs %}
-          <tr>
-            <td class="toc-source">Shell</td>
-            <td class="toc-title">{{ s.title }}</td>
-            <td class="toc-pg"><a href="#section-shell" class="toc-pageref"></a></td>
-          </tr>
-          {% endfor %}
+          {{ toc_group('Status') }}
+          {% for s in shell_outputs %}{{ toc_row('Shell', s.title, 'section-shell') }}{% endfor %}
           {% endif %}
 
           {% if wikipedia %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikipedia</span></td></tr>
-          <tr>
-            <td class="toc-source">Featured</td>
-            <td class="toc-title">{% if wikipedia.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikipedia.title }}{% endif %}</td>
-            <td class="toc-pg"><a href="#section-wikipedia" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Wikipedia') }}
+          {{ toc_row('Featured', 'Unavailable' if wikipedia.type == 'source_error' else wikipedia.title, 'section-wikipedia') }}
           {% endif %}
 
           {% if wikiquote %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Wikiquote</span></td></tr>
-          <tr>
-            <td class="toc-source">Daily</td>
-            <td class="toc-title">{% if wikiquote.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ wikiquote.meta.attribution or wikiquote.title }}{% endif %}</td>
-            <td class="toc-pg"><a href="#section-wikiquote" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Wikiquote') }}
+          {{ toc_row('Daily', 'Unavailable' if wikiquote.type == 'source_error' else (wikiquote.meta.attribution or wikiquote.title), 'section-wikiquote') }}
           {% endif %}
 
           {% if word_of_the_day %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Word</span></td></tr>
-          <tr>
-            <td class="toc-source">M-W</td>
-            <td class="toc-title">{% if word_of_the_day.type == 'source_error' %}<em>Unavailable</em>{% else %}{{ word_of_the_day.title }}{% endif %}</td>
-            <td class="toc-pg"><a href="#section-wotd" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Word') }}
+          {{ toc_row('M-W', 'Unavailable' if word_of_the_day.type == 'source_error' else word_of_the_day.title, 'section-wotd') }}
           {% endif %}
 
           {% if sudoku %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">Puzzle</span></td></tr>
-          <tr>
-            <td class="toc-source">Sudoku</td>
-            <td class="toc-title">{{ sudoku.meta.difficulty | capitalize }}</td>
-            <td class="toc-pg"><a href="#section-sudoku" class="toc-pageref"></a></td>
-          </tr>
+          {{ toc_group('Puzzle') }}
+          {{ toc_row('Sudoku', sudoku.meta.difficulty | capitalize, 'section-sudoku') }}
           {% endif %}
 
           {% if feeds %}
-          <tr class="toc-section-row"><td colspan="3"><span class="toc-section-label">News</span></td></tr>
+          {{ toc_group('News') }}
           {% set ns = namespace(idx=0) %}
           {% for feed_name, articles in feeds.items() %}
             {% for article in articles %}
-            <tr>
-              <td class="toc-source">{{ feed_name }}</td>
-              <td class="toc-title">{{ article.title }}</td>
-              <td class="toc-pg"><a href="#art-{{ ns.idx }}" class="toc-pageref"></a></td>
-            </tr>
+            {{ toc_row(feed_name, article.title, 'art-' ~ ns.idx) }}
             {% set ns.idx = ns.idx + 1 %}
             {% endfor %}
           {% endfor %}
+          {% endif %}
+
+          {% if job_blocks %}
+          {{ toc_group('Positions') }}
+          {{ toc_row('Jobs', job_blocks | length ~ ' opening' ~ ('s' if job_blocks | length != 1 else ''), 'section-jobs') }}
           {% endif %}
 
         </tbody>
       </table>
     </div>
 
-    <!-- COMPACT WEATHER BOX -->
+    <!-- TODAY'S FORECAST -->
     {% if weather %}
-    <div class="weather-compact">
-      <div class="wc-label">{{ weather.title }}</div>
+    {% set wx = weather.meta %}
+    {% set deg = wx.temp_symbol %}
+    <div class="wx-panel">
+      <div class="wx">
 
-      <!-- Current now -->
-      <div style="font-size: 22pt; line-height: 1; margin-bottom: 1pt;">{{ weather.meta.day_emoji or weather.meta.emoji }}</div>
-      <div class="wc-temp">{{ weather.meta.temp }}{{ weather.meta.temp_symbol }}</div>
-      <div class="wc-condition">{{ weather.meta.day_condition or weather.meta.condition }}</div>
-
-      <!-- Day summary: high/low + sunrise/sunset -->
-      <div class="wc-meta">
-        {% if weather.meta.high is not none %}
-        ↑{{ weather.meta.high }}{{ weather.meta.temp_symbol }} ↓{{ weather.meta.low }}{{ weather.meta.temp_symbol }}<br>
-        {% endif %}
-        Feels {{ weather.meta.feels_like }}{{ weather.meta.temp_symbol }} · {{ weather.meta.humidity }}% humidity<br>
-        Wind {{ weather.meta.wind }} km/h
-        {% if weather.meta.precip_max is not none %} · {{ weather.meta.precip_max }}% rain{% endif %}
-        {% if weather.meta.sunrise %}
-        <br>&#9728; {{ weather.meta.sunrise }} &nbsp; &#9790; {{ weather.meta.sunset }}
-        {% endif %}
-      </div>
-
-      <!-- Hourly from now until end of day -->
-      {% if weather.meta.hourly %}
-      <div class="wc-hourly">
-        {% for hour in weather.meta.hourly %}
-        <div class="wc-hour-row">
-          <span class="h-time">{{ hour.time }}</span>
-          <span>{{ hour.emoji }}</span>
-          <span>{{ hour.temp }}</span>
-          <span>{{ hour.precip }}</span>
+        <div class="wx-head">
+          <div class="wx-kicker">Today's Forecast</div>
+          {% if wx.location %}<div class="wx-place">{{ wx.location }}</div>{% endif %}
         </div>
-        {% endfor %}
-      </div>
-      {% endif %}
 
-      <!-- Tomorrow summary -->
-      {% set tmrw = weather.meta.tomorrow %}
-      {% if tmrw and tmrw.high is not none %}
-      <div class="wc-hourly" style="margin-top: 4pt;">
-        <div class="wc-hour-row" style="font-weight: 700; color: #555; font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2pt;">Tomorrow</div>
-        <div class="wc-hour-row">
-          <span>{{ tmrw.emoji }}</span>
-          <span>{{ tmrw.condition }}</span>
-          <span>↑{{ tmrw.high }}{{ weather.meta.temp_symbol }} ↓{{ tmrw.low }}{{ weather.meta.temp_symbol }}</span>
-          {% if tmrw.precip is not none %}<span>{{ tmrw.precip }}% rain</span>{% endif %}
+        <div class="wx-hero">
+          <div class="wx-hero-icon">{{ wx_icon(wx.icon, 26) }}</div>
+          <div class="wx-hero-temps">
+            <div class="wx-high">{{ wx.high if wx.high is not none else '–' }}{{ deg }}</div>
+            <div class="wx-low">Low {{ wx.low if wx.low is not none else '–' }}{{ deg }}</div>
+          </div>
         </div>
+
+        <div class="wx-condition">{{ wx.condition }}</div>
+
+        <table class="wx-facts">
+          {% if wx.precip_chance is not none %}
+          <tr><th>Rain</th><td>{{ wx.precip_chance }}%{% if wx.precip_sum %} · {{ wx.precip_sum }}mm{% endif %}</td></tr>
+          {% endif %}
+          {% if wx.wind_max is not none %}
+          <tr><th>Wind</th><td>{{ wx.wind_max }} km/h</td></tr>
+          {% endif %}
+          {% if wx.feels_high is not none %}
+          <tr><th>Feels</th><td>{{ wx.feels_low }}–{{ wx.feels_high }}{{ deg }}</td></tr>
+          {% endif %}
+          {% if wx.uv_max is not none %}
+          <tr><th>UV index</th><td>{{ wx.uv_max }}</td></tr>
+          {% endif %}
+          {% if wx.sunrise %}
+          <tr><th>Sun</th><td>{{ wx.sunrise }} – {{ wx.sunset }}</td></tr>
+          {% endif %}
+        </table>
+
+        {% if wx.day_parts %}
+        <div class="wx-block">
+          <div class="wx-block-label">Through the day</div>
+          <table class="wx-parts">
+            {% for part in wx.day_parts %}
+            <tr>
+              <td class="p-label">{{ part.label }}</td>
+              <td class="p-icon">{{ wx_icon(part.icon, 9) }}</td>
+              <td class="p-temp">{{ part.temp }}{{ deg }}</td>
+              <td class="p-precip">{% if part.precip is not none %}{{ part.precip }}%{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% endif %}
+
+        {% set tmrw = wx.tomorrow %}
+        {% if tmrw and tmrw.high is not none %}
+        <div class="wx-block">
+          <div class="wx-block-label">Tomorrow</div>
+          <div class="wx-tomorrow">
+            <div class="t-icon">{{ wx_icon(tmrw.icon, 12) }}</div>
+            <div class="t-text">
+              <span class="t-temps">{{ tmrw.high }}{{ deg }} / {{ tmrw.low }}{{ deg }}</span><br>
+              {{ tmrw.condition }}{% if tmrw.precip is not none %} · {{ tmrw.precip }}% rain{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
       </div>
-      {% endif %}
     </div>
     {% endif %}
 
   </div>
 </div><!-- /front-page -->
 
-<!-- ════════════════════ CONTENT PAGES ════════════════════════ -->
+<!-- ═══════════════════════════ CONTENT ═══════════════════════════ -->
 
 {% if tasks %}
+{%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
 <div id="section-tasks" class="section-header">
-  Today's Tasks
-  {%- set oc = tasks | selectattr("meta.overdue") | list | length %}
-  {%- if oc %} &nbsp;({{ oc }} overdue){% endif %}
+  Today's Tasks{% if overdue_count %} <span class="count">· {{ overdue_count }} overdue</span>{% endif %}
 </div>
 <ul class="task-list">
   {% for task in tasks %}
-  <li class="task-item {% if task.meta.overdue %}overdue{% endif %}">
+  <li class="task-item{% if task.meta.overdue %} overdue{% endif %}">
     <span class="task-checkbox"></span>
     <div>
       <div class="task-title">{{ task.title }}</div>
       <div class="task-meta">
-        {% if task.meta.project %}<span class="task-project">{{ task.meta.project }}</span> · {% endif %}
-        {% if task.meta.overdue %}<strong>OVERDUE</strong> · {% endif %}
+        {%- if task.meta.project %}<span class="task-project">{{ task.meta.project }}</span> · {% endif -%}
+        {%- if task.meta.overdue %}Overdue · {% endif -%}
         Due {{ task.published }}
       </div>
-      {% if task.body %}<div class="article-body">{{ task.body }}</div>{% endif %}
+      {% if task.body %}<div class="task-note">{{ task.body }}</div>{% endif %}
     </div>
   </li>
   {% endfor %}
@@ -612,15 +793,14 @@
 
 {% if emails %}
 <div id="section-emails" class="section-header">
-  Email
-  {%- if emails[0].meta.unread_total %}&nbsp;({{ emails[0].meta.unread_total }} unread){% endif %}
+  Email{% if emails[0].meta.unread_total %} <span class="count">· {{ emails[0].meta.unread_total }} unread</span>{% endif %}
 </div>
 {% for email in emails %}
 <div class="email-item">
   <div class="email-from">{{ email.meta.from }}</div>
   <div class="email-subject">{{ email.title }}</div>
   {% if email.body %}<div class="email-snippet">{{ email.body }}</div>{% endif %}
-  {% if email.published %}<div class="email-snippet">{{ email.published }}</div>{% endif %}
+  {% if email.published %}<div class="email-date">{{ email.published }}</div>{% endif %}
 </div>
 {% endfor %}
 {% endif %}
@@ -629,7 +809,7 @@
 <div id="section-learning" class="section-header">Learning</div>
 {% for lesson in lessons %}
 <div class="lesson">
-  <div class="lesson-meta">{{ lesson.source }} &nbsp;·&nbsp; {{ lesson.published }}</div>
+  <div class="lesson-meta">{{ lesson.source }} · {{ lesson.published }}</div>
   <div class="lesson-title">{{ lesson.title }}</div>
   {% if lesson.body %}<div class="lesson-body">{{ lesson.body }}</div>{% endif %}
 </div>
@@ -647,7 +827,7 @@
 {% endif %}
 
 {% if wikipedia %}
-<div id="section-wikipedia" class="section-header">Wikipedia — Article of the Day</div>
+<div id="section-wikipedia" class="section-header">Wikipedia · Article of the Day</div>
 {% if wikipedia.type == 'source_error' %}
 <div class="source-notice">
   <div class="source-notice-label">{{ wikipedia.title }}</div>
@@ -658,7 +838,7 @@
   <div class="article-title">{{ wikipedia.title }}</div>
   <div class="article-meta">{{ wikipedia.published }}</div>
   {% if wikipedia.meta.thumbnail %}
-  <div style="text-align:center; margin: 4pt 0;">
+  <div class="wikipedia-figure">
     <img class="wikipedia-thumb" src="{{ wikipedia.meta.thumbnail }}" alt="{{ wikipedia.title }}">
   </div>
   {% endif %}
@@ -668,7 +848,7 @@
 {% endif %}
 
 {% if wikiquote %}
-<div id="section-wikiquote" class="section-header">Wikiquote — Quote of the Day</div>
+<div id="section-wikiquote" class="section-header">Wikiquote · Quote of the Day</div>
 {% if wikiquote.type == 'source_error' %}
 <div class="source-notice">
   <div class="source-notice-label">{{ wikiquote.title }}</div>
@@ -676,9 +856,9 @@
 </div>
 {% else %}
 <div class="wikiquote-block">
-  <div class="wikiquote-quote">"{{ wikiquote.body }}"</div>
+  <div class="wikiquote-quote">“{{ wikiquote.body }}”</div>
   {% if wikiquote.meta.attribution %}
-  <div class="wikiquote-attr">{{ wikiquote.meta.attribution }}</div>
+  <div class="wikiquote-attr">— {{ wikiquote.meta.attribution }}</div>
   {% endif %}
 </div>
 {% endif %}
@@ -695,26 +875,20 @@
 <div class="wotd-block">
   <div class="wotd-word">{{ word_of_the_day.title }}</div>
   <div class="wotd-label">{{ word_of_the_day.source }} · {{ word_of_the_day.published }}</div>
-  {% if word_of_the_day.body %}
-  <div class="wotd-definition">{{ word_of_the_day.body }}</div>
-  {% endif %}
+  {% if word_of_the_day.body %}<div class="wotd-definition">{{ word_of_the_day.body }}</div>{% endif %}
 </div>
 {% endif %}
 {% endif %}
 
 {% if sudoku %}
-<div id="section-sudoku" class="section-header">Sudoku — {{ sudoku.meta.difficulty | capitalize }}</div>
+<div id="section-sudoku" class="section-header">Sudoku · {{ sudoku.meta.difficulty | capitalize }}</div>
 <div class="sudoku-wrap">
   <table class="sudoku-grid">
     {% for r in range(9) %}
     <tr>
       {% for c in range(9) %}
-      {% set val = sudoku.meta.puzzle[r][c] %}
-      <td class="
-        {%- if val != 0 %}given{% else %}empty{% endif %}
-        {%- if c in (2, 5) %} box-right{% endif %}
-        {%- if r in (2, 5) %} box-bottom{% endif %}
-      ">{{ val if val != 0 else '' }}</td>
+      {%- set val = sudoku.meta.puzzle[r][c] %}
+      <td class="{{ 'given' if val != 0 else 'empty' }}{{ ' box-right' if c in (2, 5) }}{{ ' box-bottom' if r in (2, 5) }}">{{ val if val != 0 else '' }}</td>
       {% endfor %}
     </tr>
     {% endfor %}
@@ -723,7 +897,7 @@
 {% endif %}
 
 {% if feeds %}
-<div class="section-header">News</div>
+<div id="section-news" class="section-header">News</div>
 <div class="articles-grid">
   {% set ns = namespace(idx=0) %}
   {% for feed_name, articles in feeds.items() %}
@@ -732,15 +906,14 @@
     {% for article in articles %}
     <div class="article" id="art-{{ ns.idx }}">
       <div class="article-title">{{ article.title }}</div>
-      <div class="article-meta">{% if article.published %}{{ article.published }}{% endif %}</div>
+      {% if article.published %}<div class="article-meta">{{ article.published }}</div>{% endif %}
       {% if article.image_url %}
-      <div style="text-align: center; margin: 3pt 0;">
-        <img src="{{ article.image_url }}" alt="{{ article.title }}"
-             style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+      <div class="article-figure">
+        <img src="{{ article.image_url }}" alt="{{ article.title }}">
       </div>
       {% endif %}
       {% if article.body %}
-      <div class="article-body {% if article.get('ai_summarised') %}ai-summary{% endif %}">{{ article.body }}</div>
+      <div class="article-body{% if article.get('ai_summarised') %} ai-summary{% endif %}">{{ article.body }}</div>
       {% endif %}
     </div>
     {% set ns.idx = ns.idx + 1 %}
@@ -751,7 +924,7 @@
 {% endif %}
 
 {% if job_blocks %}
-<div class="section-header" id="section-jobs">New Positions</div>
+<div id="section-jobs" class="section-header">New Positions</div>
 {% for job in job_blocks %}
 <div class="job-item">
   <div class="job-header">
@@ -759,7 +932,7 @@
     <span class="job-rating">{{ job.meta.rating_stars }} {{ job.meta.rating }}/5</span>
   </div>
   <div class="job-meta">
-    {{ job.meta.company }}{% if job.meta.location %} &nbsp;·&nbsp; {{ job.meta.location }}{% endif %} &nbsp;·&nbsp; {{ job.source }}{% if job.published %} &nbsp;·&nbsp; {{ job.published }}{% endif %}
+    {{ job.meta.company }}{% if job.meta.location %} · {{ job.meta.location }}{% endif %} · {{ job.source }}{% if job.published %} · {{ job.published }}{% endif %}
   </div>
   {% if job.meta.salary %}<div class="job-salary">{{ job.meta.salary }}</div>{% endif %}
   {% if job.body %}<div class="job-body">{{ job.body }}</div>{% endif %}
@@ -768,9 +941,7 @@
 {% endfor %}
 {% endif %}
 
-<div class="footer">
-  {{ config.newspaper_name }} &nbsp;·&nbsp; {{ generated_at }}
-</div>
+<div class="footer">{{ config.newspaper_name }} · {{ generated_at }}</div>
 
 </body>
 </html>

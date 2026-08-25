@@ -1,14 +1,16 @@
 """Weather source using Open-Meteo (free, no API key required).
 
-Returns current conditions, today's daily summary (high/low, sunrise/sunset,
-max precipitation probability), and an hourly forecast for the remaining
-hours of the day.
+The newspaper is a *forecast* for the day ahead, so this module leads with
+today's outlook — the day's weather code, high/low, rain chance, wind and
+daylight hours — plus a fixed set of day-part slots (morning → night) and a
+one-line look at tomorrow. Current conditions are still returned under
+``meta.now`` for anything that wants them, but they are not the headline.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date
 
 import requests
 
@@ -22,21 +24,57 @@ _WMO_CODES = {
     0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
     45: "Fog", 48: "Icy fog",
     51: "Light drizzle", 53: "Moderate drizzle", 55: "Heavy drizzle",
+    56: "Freezing drizzle", 57: "Freezing drizzle",
     61: "Light rain", 63: "Moderate rain", 65: "Heavy rain",
-    71: "Light snow", 73: "Moderate snow", 75: "Heavy snow",
+    66: "Freezing rain", 67: "Freezing rain",
+    71: "Light snow", 73: "Moderate snow", 75: "Heavy snow", 77: "Snow grains",
     80: "Light showers", 81: "Moderate showers", 82: "Heavy showers",
+    85: "Snow showers", 86: "Heavy snow showers",
     95: "Thunderstorm", 96: "Thunderstorm w/ hail", 99: "Thunderstorm w/ heavy hail",
 }
 
-_WMO_EMOJI = {
-    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
-    45: "🌫️", 48: "🌫️",
-    51: "🌦️", 53: "🌦️", 55: "🌧️",
-    61: "🌧️", 63: "🌧️", 65: "🌧️",
-    71: "❄️", 73: "❄️", 75: "❄️",
-    80: "🌦️", 81: "🌦️", 82: "⛈️",
-    95: "⛈️", 96: "⛈️", 99: "⛈️",
+# Icon slugs map onto the line-art SVGs drawn in templates/newspaper.html.
+# Monochrome shapes print far more reliably on e-ink than colour emoji.
+_WMO_ICONS = {
+    0: "clear", 1: "mostly-clear", 2: "partly-cloudy", 3: "overcast",
+    45: "fog", 48: "fog",
+    51: "drizzle", 53: "drizzle", 55: "drizzle", 56: "drizzle", 57: "drizzle",
+    61: "rain", 63: "rain", 65: "rain", 66: "rain", 67: "rain",
+    71: "snow", 73: "snow", 75: "snow", 77: "snow",
+    80: "showers", 81: "showers", 82: "showers",
+    85: "snow", 86: "snow",
+    95: "thunder", 96: "thunder", 99: "thunder",
 }
+
+# Day parts shown in the forecast strip (hour of day → label).
+_DAY_PARTS = [(6, "Morning"), (9, "Late AM"), (12, "Midday"),
+              (15, "Afternoon"), (18, "Evening"), (21, "Night")]
+
+
+def _icon(code) -> str:
+    return _WMO_ICONS.get(code, "unknown")
+
+
+def _condition(code) -> str:
+    return _WMO_CODES.get(code, "Unknown")
+
+
+def _at(seq, index, default=None):
+    try:
+        value = seq[index]
+    except (IndexError, TypeError):
+        return default
+    return default if value is None else value
+
+
+def _round(value):
+    """Open-Meteo returns floats; whole numbers read better in print."""
+    if value is None:
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return value
 
 
 def fetch() -> list[dict]:
@@ -63,11 +101,14 @@ def fetch() -> list[dict]:
                 "weathercode", "windspeed_10m", "relativehumidity_2m",
             ],
             "hourly": [
-                "temperature_2m", "precipitation_probability", "weathercode",
+                "temperature_2m", "apparent_temperature",
+                "precipitation_probability", "weathercode", "windspeed_10m",
             ],
             "daily": [
                 "temperature_2m_max", "temperature_2m_min",
+                "apparent_temperature_max", "apparent_temperature_min",
                 "weathercode", "precipitation_probability_max",
+                "precipitation_sum", "windspeed_10m_max", "uv_index_max",
                 "sunrise", "sunset",
             ],
             "temperature_unit": temp_unit,
@@ -81,98 +122,118 @@ def fetch() -> list[dict]:
         logger.error("Weather fetch failed: %s", exc)
         return []
 
-    current = data.get("current", {})
-    hourly  = data.get("hourly", {})
-    daily   = data.get("daily", {})
+    current = data.get("current", {}) or {}
+    hourly = data.get("hourly", {}) or {}
+    daily = data.get("daily", {}) or {}
 
-    # ── Current conditions ────────────────────────────────────────────────────
-    temp = current.get("temperature_2m", "?")
-    feels = current.get("apparent_temperature", "?")
-    wind = current.get("windspeed_10m", "?")
-    humidity = current.get("relativehumidity_2m", "?")
-    weather_code = current.get("weathercode", -1)
-    condition = _WMO_CODES.get(weather_code, "Unknown")
-    emoji = _WMO_EMOJI.get(weather_code, "🌡️")
+    # ── Today's forecast (daily index 0) ─────────────────────────────────────
+    day_code = _at(daily.get("weathercode", []), 0, -1)
+    high = _round(_at(daily.get("temperature_2m_max", []), 0))
+    low = _round(_at(daily.get("temperature_2m_min", []), 0))
+    feels_high = _round(_at(daily.get("apparent_temperature_max", []), 0))
+    feels_low = _round(_at(daily.get("apparent_temperature_min", []), 0))
+    precip_chance = _round(_at(daily.get("precipitation_probability_max", []), 0))
+    precip_sum = _at(daily.get("precipitation_sum", []), 0)
+    wind_max = _round(_at(daily.get("windspeed_10m_max", []), 0))
+    uv_max = _round(_at(daily.get("uv_index_max", []), 0))
 
-    # ── Daily summary (today = index 0) ───────────────────────────────────────
-    high        = daily.get("temperature_2m_max",          [None])[0]
-    low         = daily.get("temperature_2m_min",          [None])[0]
-    day_code    = daily.get("weathercode",                 [-1])[0]
-    precip_max  = daily.get("precipitation_probability_max",[None])[0]
-    sunrise_raw = daily.get("sunrise",                     [""])[0]   # e.g. "2024-01-15T06:23"
-    sunset_raw  = daily.get("sunset",                      [""])[0]
-
+    sunrise_raw = _at(daily.get("sunrise", []), 0, "")   # "2024-01-15T06:23"
+    sunset_raw = _at(daily.get("sunset", []), 0, "")
     sunrise = sunrise_raw[11:16] if len(sunrise_raw) > 11 else sunrise_raw
-    sunset  = sunset_raw[11:16]  if len(sunset_raw)  > 11 else sunset_raw
+    sunset = sunset_raw[11:16] if len(sunset_raw) > 11 else sunset_raw
 
-    day_condition = _WMO_CODES.get(day_code, condition)
-    day_emoji     = _WMO_EMOJI.get(day_code, emoji)
+    day_condition = _condition(day_code)
+    day_icon = _icon(day_code)
 
-    # Tomorrow summary (index 1)
-    tmrw_high      = daily.get("temperature_2m_max",           [None, None])[1]
-    tmrw_low       = daily.get("temperature_2m_min",           [None, None])[1]
-    tmrw_code      = daily.get("weathercode",                  [-1, -1])[1]
-    tmrw_precip    = daily.get("precipitation_probability_max", [None, None])[1]
-    tmrw_condition = _WMO_CODES.get(tmrw_code, "")
-    tmrw_emoji     = _WMO_EMOJI.get(tmrw_code, "")
+    # ── Tomorrow (daily index 1) ─────────────────────────────────────────────
+    tmrw_code = _at(daily.get("weathercode", []), 1, -1)
+    tomorrow = {
+        "high": _round(_at(daily.get("temperature_2m_max", []), 1)),
+        "low": _round(_at(daily.get("temperature_2m_min", []), 1)),
+        "condition": _condition(tmrw_code) if tmrw_code != -1 else "",
+        "icon": _icon(tmrw_code) if tmrw_code != -1 else "",
+        "precip": _round(_at(daily.get("precipitation_probability_max", []), 1)),
+    }
 
-    # ── Hourly rows: skip past hours, show rest of today every 3 h ───────────
-    now_hour = datetime.now().hour  # e.g. 6 → start from index 6 (06:00)
+    # ── Day-part forecast for today ──────────────────────────────────────────
+    # Anchor on the API's own local date so the slots always describe *today*
+    # in the forecast location, regardless of where the container runs.
+    today_str = _at(daily.get("time", []), 0, date.today().isoformat())
 
-    hourly_times  = hourly.get("time", [])
-    hourly_temps  = hourly.get("temperature_2m", [])
-    hourly_precip = hourly.get("precipitation_probability", [])
-    hourly_codes  = hourly.get("weathercode", [])
+    times = hourly.get("time", []) or []
+    temps = hourly.get("temperature_2m", []) or []
+    precips = hourly.get("precipitation_probability", []) or []
+    codes = hourly.get("weathercode", []) or []
 
-    hourly_rows = []
-    # Indices 0–23 = today; step by 3, starting from the current hour
-    start = (now_hour // 3) * 3  # round down to nearest 3-hour slot
-    for i in range(start, 24, 3):
-        if i >= len(hourly_times):
-            break
-        code = hourly_codes[i] if i < len(hourly_codes) else -1
-        hourly_rows.append({
-            "time":      hourly_times[i][11:16] if len(hourly_times[i]) > 11 else hourly_times[i],
-            "temp":      f"{hourly_temps[i]}{temp_symbol}"  if i < len(hourly_temps)  else "",
-            "precip":    f"{hourly_precip[i]}%"             if i < len(hourly_precip) else "",
-            "condition": _WMO_CODES.get(code, ""),
-            "emoji":     _WMO_EMOJI.get(code, ""),
+    index_by_hour = {}
+    for i, stamp in enumerate(times):
+        if stamp.startswith(today_str) and len(stamp) >= 13:
+            try:
+                index_by_hour[int(stamp[11:13])] = i
+            except ValueError:
+                continue
+
+    day_parts = []
+    for hour, label in _DAY_PARTS:
+        i = index_by_hour.get(hour)
+        if i is None:
+            continue
+        code = _at(codes, i, -1)
+        day_parts.append({
+            "label": label,
+            "time": f"{hour:02d}:00",
+            "temp": _round(_at(temps, i)),
+            "precip": _round(_at(precips, i)),
+            "condition": _condition(code),
+            "icon": _icon(code),
         })
+
+    # ── Current conditions (kept, but not the headline) ──────────────────────
+    now_code = current.get("weathercode", -1)
+    now = {
+        "temp": _round(current.get("temperature_2m")),
+        "feels_like": _round(current.get("apparent_temperature")),
+        "condition": _condition(now_code),
+        "icon": _icon(now_code),
+        "wind": _round(current.get("windspeed_10m")),
+        "humidity": _round(current.get("relativehumidity_2m")),
+    }
+
+    summary = f"{day_condition}."
+    if high is not None and low is not None:
+        summary += f" High {high}{temp_symbol}, low {low}{temp_symbol}."
+    if precip_chance is not None:
+        summary += f" {precip_chance}% chance of rain."
+    if wind_max is not None:
+        summary += f" Wind up to {wind_max} km/h."
+    if sunrise and sunset:
+        summary += f" Sunrise {sunrise}, sunset {sunset}."
 
     return [{
         "type": "weather",
         "source": "Open-Meteo",
-        "title": f"Weather — {location}" if location else "Weather",
-        "body": (
-            f"{day_condition}. High {high}{temp_symbol}, low {low}{temp_symbol}. "
-            f"Sunrise {sunrise}, sunset {sunset}. "
-            f"Rain chance {precip_max}%. Wind {wind} km/h."
-        ),
+        "title": f"Forecast — {location}" if location else "Today's Forecast",
+        "body": summary,
         "meta": {
-            "temp":        temp,
-            "feels_like":  feels,
+            "location": location,
             "temp_symbol": temp_symbol,
-            "condition":   condition,
-            "emoji":       emoji,
-            "wind":        wind,
-            "humidity":    humidity,
-            # Today's forecast summary
-            "high":        high,
-            "low":         low,
-            "day_condition": day_condition,
-            "day_emoji":     day_emoji,
-            "precip_max":  precip_max,
-            "sunrise":     sunrise,
-            "sunset":      sunset,
-            # Tomorrow
-            "tomorrow": {
-                "high":      tmrw_high,
-                "low":       tmrw_low,
-                "condition": tmrw_condition,
-                "emoji":     tmrw_emoji,
-                "precip":    tmrw_precip,
-            },
-            # Hourly from now
-            "hourly": hourly_rows,
+            # Today's forecast
+            "condition": day_condition,
+            "icon": day_icon,
+            "high": high,
+            "low": low,
+            "feels_high": feels_high,
+            "feels_low": feels_low,
+            "precip_chance": precip_chance,
+            "precip_sum": precip_sum,
+            "wind_max": wind_max,
+            "uv_max": uv_max,
+            "sunrise": sunrise,
+            "sunset": sunset,
+            # Rest of the outlook
+            "day_parts": day_parts,
+            "tomorrow": tomorrow,
+            # Current conditions, for anything that still wants them
+            "now": now,
         },
     }]
