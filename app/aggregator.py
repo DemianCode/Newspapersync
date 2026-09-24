@@ -135,6 +135,7 @@ def collect(edition: dict | None = None) -> dict:
     return {
         "generated_at": now.strftime("%A, %d %B %Y"),
         "generated_time": now.strftime("%H:%M"),
+        "issue_no": now.timetuple().tm_yday,
         "weather": weather_blocks[0] if weather_blocks else None,
         "tasks": task_blocks,
         "emails": email_blocks,
