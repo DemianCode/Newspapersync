@@ -73,6 +73,10 @@ def collect(edition: dict | None = None) -> dict:
 
     edition_sources = edition.get("sources") if edition else None
 
+    # Lessons staged by an earlier run whose PDF never got built must not be
+    # advanced by this run, which may not include the learning feed at all.
+    learning._pending_advances.clear()
+
     def should_run(key: str) -> bool:
         """When an edition is active, it controls which sources run.
         Without an edition, all modules run and each checks its own enable flag."""
@@ -131,6 +135,7 @@ def collect(edition: dict | None = None) -> dict:
     return {
         "generated_at": now.strftime("%A, %d %B %Y"),
         "generated_time": now.strftime("%H:%M"),
+        "issue_no": now.timetuple().tm_yday,
         "weather": weather_blocks[0] if weather_blocks else None,
         "tasks": task_blocks,
         "emails": email_blocks,

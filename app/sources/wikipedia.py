@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 _API_URL = "https://en.wikipedia.org/api/rest_v1/feed/featured/{year}/{month:02d}/{day:02d}"
 _MAX_EXTRACT = 1500
+_ON_THIS_DAY = 3
 
 
 def _error_block(reason: str, message: str) -> dict:
@@ -75,6 +76,15 @@ def fetch() -> list[dict]:
     if len(extract) > _MAX_EXTRACT:
         extract = extract[:_MAX_EXTRACT].rsplit(" ", 1)[0] + "\u2026"
 
+    # The same response carries "On this day" — worth a few lines for free.
+    events = [e for e in (data.get("onthisday") or []) if e.get("year") and e.get("text")]
+    events.sort(key=lambda e: e["year"])
+    if len(events) > _ON_THIS_DAY:
+        # Spread the picks across the centuries rather than taking the latest.
+        step = (len(events) - 1) / (_ON_THIS_DAY - 1)
+        events = [events[round(i * step)] for i in range(_ON_THIS_DAY)]
+    on_this_day = [{"year": e["year"], "text": e["text"].strip()} for e in events]
+
     return [{
         "type": "wikipedia",
         "title": title,
@@ -83,5 +93,7 @@ def fetch() -> list[dict]:
         "body": extract,
         "meta": {
             "thumbnail": thumbnail,
+            "description": (tfa.get("description") or "").strip(),
+            "on_this_day": on_this_day,
         },
     }]

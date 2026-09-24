@@ -13,7 +13,7 @@
 {%- if config.theme == 'retro' %}
   {%- set fs = config.font_size %}
   {%- set T = {
-    'paper': '#fdf6e3', 'ink': '#1a0a00', 'ink_soft': '#3d2000', 'ink_mute': '#7a5030',
+    'paper': '#fdf6e3', 'ink': '#1a0a00', 'ink_soft': '#3d2000', 'ink_mute': '#644022',
     'rule': '#5a3e1b', 'rule_soft': '#c8a87a', 'hairline': '#ddc9a4',
     'panel': '#fef0d0', 'panel_rule': '#c8a87a', 'accent': '#8b4513', 'alert': '#8b0000',
     'font_body': '"Liberation Mono", "Courier New", "Courier", monospace',
@@ -24,7 +24,7 @@
 {%- elif config.theme == 'readable' %}
   {%- set fs = [config.font_size, 10] | max %}
   {%- set T = {
-    'paper': '#faf8f2', 'ink': '#1a1208', 'ink_soft': '#2d2416', 'ink_mute': '#6b5c42',
+    'paper': '#faf8f2', 'ink': '#1a1208', 'ink_soft': '#2d2416', 'ink_mute': '#584a32',
     'rule': '#6b5c42', 'rule_soft': '#c8b89a', 'hairline': '#e8e0d0',
     'panel': '#f0ece2', 'panel_rule': '#c8b89a', 'accent': '#6b5c42', 'alert': '#8b2000',
     'font_body': '"OpenDyslexic", "DejaVu Sans", "Verdana", "Arial", sans-serif',
@@ -35,8 +35,8 @@
 {%- else %}
   {%- set fs = config.font_size %}
   {%- set T = {
-    'paper': '#ffffff', 'ink': '#111111', 'ink_soft': '#333333', 'ink_mute': '#767676',
-    'rule': '#111111', 'rule_soft': '#bbbbbb', 'hairline': '#dddddd',
+    'paper': '#ffffff', 'ink': '#111111', 'ink_soft': '#2b2b2b', 'ink_mute': '#555555',
+    'rule': '#111111', 'rule_soft': '#999999', 'hairline': '#cccccc',
     'panel': '#f6f6f6', 'panel_rule': '#c4c4c4', 'accent': '#111111', 'alert': '#8b0000',
     'font_body': '"Liberation Serif", "Georgia", "Times New Roman", serif',
     'font_ui':   '"Liberation Sans", "Arial", "Helvetica", sans-serif',
@@ -48,9 +48,21 @@
 {#- Type scale, in points, derived once from the configured base size. #}
 {%- set fs_lead  = fs + 1 %}
 {%- set fs_sm    = fs - 1 %}
-{%- set fs_xs    = [fs - 2, 6]   | max %}
-{%- set fs_2xs   = [fs - 3, 5.5] | max %}
+{%- set fs_xs    = [fs - 2, 7]   | max %}
+{%- set fs_2xs   = [fs - 3, 6.5] | max %}
 {%- set fs_mast  = (fs * T.masthead_scale) | round | int %}
+{%- set fs_head  = fs + 3 %}
+{%- set fs_stat  = (fs * 1.7) | round | int %}
+{#- Width of the left rail used by stories, emails, jobs and the index. #}
+{%- set rail_w   = '23%' %}
+
+{#- Tokens go into CSS verbatim. Autoescape would turn the quotes in font
+    stacks into &#34;, which a <style> block never decodes, and every theme
+    would silently fall back to the default serif. #}
+{%- set F_BODY = T.font_body | safe %}
+{%- set F_UI   = T.font_ui   | safe %}
+{%- set F_MONO = T.font_mono | safe %}
+{%- set css_name = config.newspaper_name | replace('\\', '') | replace('"', "'") %}
 
 <style>
   /* ── Reset ──────────────────────────────────────────────────────────────── */
@@ -70,11 +82,12 @@
     --accent: {{ T.accent }};
     --alert: {{ T.alert }};
 
-    --font-body: {{ T.font_body }};
-    --font-ui: {{ T.font_ui }};
-    --font-mono: {{ T.font_mono }};
+    --font-body: {{ F_BODY }};
+    --font-ui: {{ F_UI }};
+    --font-mono: {{ F_MONO }};
 
     --fs-mast: {{ fs_mast }}pt;
+    --fs-head: {{ fs_head }}pt;
     --fs-lead: {{ fs_lead }}pt;
     --fs-body: {{ fs }}pt;
     --fs-sm: {{ fs_sm }}pt;
@@ -86,16 +99,39 @@
     --radius: {{ T.radius }};
   }
 
-  /* ── Page furniture ─────────────────────────────────────────────────────── */
+  /* ── Page furniture ─────────────────────────────────────────────────────────
+     Inside pages carry a running head (paper · section, date) so a page
+     picked up on its own still says where it belongs. The front page has
+     the masthead instead. */
   @page {
     background: {{ T.paper }};
+    @top-left {
+      content: "{{ css_name }}" "  ·  " string(section, start);
+      width: 60%;
+      font-family: {{ F_UI }}; font-size: {{ fs_2xs }}pt; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: {{ T.ink }};
+      vertical-align: bottom; padding-bottom: 4pt;
+      border-bottom: 0.75pt solid {{ T.rule }};
+    }
+    @top-right {
+      content: "{{ generated_at }}";
+      width: 40%;
+      font-family: {{ F_UI }}; font-size: {{ fs_2xs }}pt;
+      letter-spacing: 0.04em; color: {{ T.ink_mute }};
+      vertical-align: bottom; padding-bottom: 4pt;
+      border-bottom: 0.75pt solid {{ T.rule }};
+    }
     @bottom-center {
       content: counter(page) " / " counter(pages);
-      font-family: {{ T.font_ui }};
+      font-family: {{ F_UI }};
       font-size: {{ fs_2xs }}pt;
       color: {{ T.ink_mute }};
       padding-top: 4pt;
     }
+  }
+  @page :first {
+    @top-left  { content: none; border: none; }
+    @top-right { content: none; border: none; }
   }
 
   body {
@@ -107,152 +143,200 @@
     {% if config.theme == 'readable' %}letter-spacing: 0.025em; word-spacing: 0.08em;{% endif %}
   }
 
-  /* ── Masthead ───────────────────────────────────────────────────────────── */
-  .masthead {
-    text-align: center;
-    padding: var(--sp-2) 0 var(--sp-3);
-    margin-bottom: var(--sp-4);
-    {% if config.theme == 'retro' %}
-    border-top: 3px double var(--rule); border-bottom: 3px double var(--rule);
-    {% elif config.theme == 'readable' %}
-    border-top: 4px solid var(--rule); border-bottom: 2px solid var(--rule-soft);
-    {% else %}
-    border-top: 3px solid var(--rule); border-bottom: 1px solid var(--rule);
-    {% endif %}
-  }
-  .masthead h1 {
-    font-size: var(--fs-mast);
-    font-weight: {% if config.theme == 'readable' %}700{% else %}900{% endif %};
-    line-height: 1.1;
-    letter-spacing: {% if config.theme == 'retro' %}0.14em{% else %}0.05em{% endif %};
-    {% if config.theme != 'readable' %}text-transform: uppercase;{% endif %}
-  }
-  .masthead .rule { border: none; border-top: 1px solid var(--rule-soft); margin: var(--sp-2) 0; }
-  .dateline {
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    letter-spacing: {{ T.track }};
-    text-transform: uppercase;
-    color: var(--ink-mute);
-  }
-  .dateline .sep { padding: 0 var(--sp-1); }
-
-  /* ── Section headers ────────────────────────────────────────────────────── */
-  .section-header {
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: {% if config.theme == 'traditional' or not config.theme %}var(--ink){% else %}var(--accent){% endif %};
-    margin: var(--sp-5) 0 var(--sp-3);
-    break-after: avoid;
-    {% if config.theme == 'retro' %}
-    border-top: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft);
-    background: var(--panel); padding: var(--sp-2);
-    {% elif config.theme == 'readable' %}
-    border-left: 4pt solid var(--rule-soft); background: var(--panel);
-    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
-    border-radius: 0 var(--radius) var(--radius) 0;
-    {% else %}
-    border-top: 2px solid var(--rule); border-bottom: 1px solid var(--rule-soft);
-    padding: var(--sp-2) 0;
-    {% endif %}
-  }
-  {% if config.theme == 'retro' %}
-  .section-header::before { content: "[ "; }
-  .section-header::after  { content: " ]"; }
-  {% endif %}
-  .section-header .count { font-weight: 400; color: var(--ink-mute); letter-spacing: 0.06em; }
-  .section-header:first-child { margin-top: 0; }
-
-  /* ── Front page: contents + forecast, side by side ──────────────────────── */
-  /* A table beats flex here — WeasyPrint's table layout is the reliable one. */
-  .front-page { margin-bottom: var(--sp-4); }
-  .front-grid { display: table; width: 100%; table-layout: fixed; }
-  .toc-panel { display: table-cell; vertical-align: top; }
-  .wx-panel  { display: table-cell; vertical-align: top; width: 118pt; padding-left: var(--sp-4); }
-
-  /* ── Table of contents ──────────────────────────────────────────────────── */
-  .toc-table { width: 100%; border-collapse: collapse; }
-  .toc-table thead th {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    text-align: left;
-    border-bottom: 1.5px solid var(--rule);
-    padding: 0 var(--sp-1) var(--sp-1);
-  }
-  .toc-table thead th.th-pg { text-align: right; }
-  .toc-table td {
-    padding: var(--sp-1) var(--sp-1);
-    vertical-align: top;
-    line-height: 1.35;
-    border-bottom: 1px solid var(--hairline);
-  }
-  .toc-table tr:last-child td { border-bottom: none; }
-  .toc-source {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    white-space: nowrap;
-    width: 26%;
-    padding-right: var(--sp-2);
-  }
-  .toc-title { font-size: var(--fs-sm); color: var(--ink); }
-  .toc-pg {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    color: var(--ink-mute);
-    text-align: right;
-    white-space: nowrap;
-    width: 16pt;
-  }
-  a.toc-pageref { text-decoration: none; color: var(--ink-mute); }
-  a.toc-pageref::after { content: target-counter(attr(href), page); }
-  .toc-table tr { break-inside: avoid; }
-  .toc-group { break-after: avoid; }
-  .toc-group td {
-    padding-top: var(--sp-3);
-    padding-bottom: 0.5pt;
-    border-bottom: none;
-  }
-  .toc-group:first-child td { padding-top: var(--sp-1); }
-  .toc-group-label {
-    display: inline-block;
+  /* Shared small-caps label used by kickers, bylines and table heads. */
+  .label {
     font-family: var(--font-ui);
     font-size: var(--fs-2xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    background: var(--accent);
-    color: var(--paper);
-    padding: 0.5pt var(--sp-2);
-    border-radius: var(--radius);
+    color: var(--ink-mute);
   }
+
+  /* ── Masthead ───────────────────────────────────────────────────────────── */
+  /* Seeds the running head, so an index that spills to page 2 says so. */
+  .masthead { text-align: center; padding-top: var(--sp-2); string-set: section "Contents"; }
+  .masthead h1 {
+    font-size: var(--fs-mast);
+    font-weight: {% if config.theme == 'readable' %}700{% else %}900{% endif %};
+    line-height: 1.05;
+    letter-spacing: {% if config.theme == 'retro' %}0.14em{% else %}0.04em{% endif %};
+    {% if config.theme != 'readable' %}text-transform: uppercase;{% endif %}
+    padding-bottom: var(--sp-3);
+  }
+  /* Dateline bar: date · edition · page count, between a heavy and a light rule. */
+  .dateline {
+    display: table; width: 100%;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    letter-spacing: {{ T.track }};
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    {% if config.theme == 'retro' %}
+    border-top: 3px double var(--rule); border-bottom: 3px double var(--rule);
+    {% else %}
+    border-top: 2.5pt solid var(--rule); border-bottom: 0.75pt solid var(--rule);
+    {% endif %}
+  }
+  .dateline > div { display: table-cell; padding: var(--sp-2) 0; vertical-align: middle; }
+  .dateline .dl-left   { text-align: left;   width: 38%; }
+  .dateline .dl-center { text-align: center; font-weight: 700; color: var(--ink); }
+  .dateline .dl-right  { text-align: right;  width: 38%; }
+
+  /* ── At a glance ────────────────────────────────────────────────────────── */
+  .glance {
+    display: table; width: 100%; table-layout: fixed;
+    margin: var(--sp-4) 0 var(--sp-5);
+    border-bottom: 0.75pt solid var(--rule-soft);
+    padding-bottom: var(--sp-3);
+  }
+  .glance-cell {
+    display: table-cell;
+    text-align: center;
+    vertical-align: top;
+    border-left: 0.75pt solid var(--hairline);
+    padding: 0 var(--sp-2);
+  }
+  .glance-cell:first-child { border-left: none; }
+  .glance-num {
+    font-family: var(--font-body);
+    font-size: {{ fs_stat }}pt;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .glance-num .unit { font-size: var(--fs-sm); font-weight: 400; color: var(--ink-mute); }
+  .glance-cap { margin-top: var(--sp-1); }
+  .glance-sub {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    color: var(--ink-mute);
+    margin-top: 0.5pt;
+  }
+  .glance-sub.flag { color: var(--ink); font-weight: 700; }
+
+  /* ── Section headers ────────────────────────────────────────────────────────
+     One heavy rule, the section name, and a quiet right-aligned note. The
+     name also feeds the running head of the page it lands on. */
+  .section-header {
+    display: table; width: 100%;
+    margin: var(--sp-6) 0 var(--sp-3);
+    padding-top: var(--sp-2);
+    break-after: avoid;
+    string-set: section attr(data-section);
+    {% if config.theme == 'retro' %}
+    border-top: 3px double var(--rule); border-bottom: 1px solid var(--rule-soft);
+    padding-bottom: var(--sp-1);
+    {% elif config.theme == 'readable' %}
+    border-top: 3pt solid var(--rule); border-bottom: 1px solid var(--rule-soft);
+    padding-bottom: var(--sp-1);
+    {% else %}
+    border-top: 2pt solid var(--rule);
+    {% endif %}
+  }
+  .section-header .sh-name,
+  .section-header .sh-note { display: table-cell; vertical-align: baseline; }
+  .section-header .sh-name {
+    font-family: var(--font-body);
+    font-size: var(--fs-head);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--ink);
+    {% if config.theme == 'retro' %}text-transform: uppercase; letter-spacing: 0.06em;{% endif %}
+  }
+  .section-header .sh-note {
+    text-align: right;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    white-space: nowrap;
+  }
+  .section-header .sh-note b { color: var(--ink); }
+
+
+  /* Small inverted tag, used for OVERDUE, NEW, AI and similar flags.
+     Solid ink on paper reads on e-ink where a colour would turn grey. */
+  .tag {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: {{ [fs_2xs - 0.5, 5] | max }}pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.3;
+    padding: 0 var(--sp-1);
+    border-radius: var(--radius);
+    background: var(--ink);
+    color: var(--paper);
+    vertical-align: 1pt;
+  }
+  .tag.outline { background: none; color: var(--ink-soft); border: 0.5pt solid var(--ink-mute); }
+
+  /* ── Front page: index + forecast, side by side ─────────────────────────── */
+  /* A table beats flex here — WeasyPrint's table layout is the reliable one. */
+  .front-grid { display: table; width: 100%; table-layout: fixed; }
+  .toc-panel { display: table-cell; vertical-align: top; }
+  .wx-panel  { display: table-cell; vertical-align: top; width: 118pt; padding-left: var(--sp-5); }
+
+  /* ── Index (contents) ───────────────────────────────────────────────────────
+     One row per entry. The section name sits in the left gutter on its
+     first row only; rules separate sections, not every line. */
+  .toc-kicker { padding-bottom: var(--sp-2); border-bottom: 1.5pt solid var(--rule); }
+  .toc-table { width: 100%; border-collapse: collapse; }
+  .toc-table td { vertical-align: top; line-height: 1.3; padding: 1.5pt 0; }
+  .toc-table tbody { break-inside: avoid; }
+  .toc-table tbody td { border-top: 0.75pt solid var(--hairline); }
+  .toc-table tbody tr + tr td { border-top: none; }
+  .toc-table tbody:first-of-type td { border-top: none; }
+  .toc-table tbody tr:first-child td { padding-top: var(--sp-2); }
+  .toc-table tbody tr:last-child td { padding-bottom: var(--sp-2); }
+  .toc-sec {
+    width: {{ rail_w }};
+    padding-right: var(--sp-2);
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding-top: 2.5pt;
+  }
+  .toc-title { font-size: var(--fs-sm); color: var(--ink); }
+  .toc-src {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    white-space: nowrap;
+  }
+  .toc-pg {
+    width: 14pt;
+    text-align: right;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    padding-top: 2pt;
+  }
+  a.toc-pageref { text-decoration: none; color: inherit; }
+  a.toc-pageref::after { content: target-counter(attr(href), page); }
 
   /* ── Forecast panel ─────────────────────────────────────────────────────── */
   .wx {
     background: var(--panel);
     border: 1px solid var(--panel-rule);
-    border-radius: var(--radius);
+    border-top: 2pt solid var(--rule);
+    border-radius: 0 0 var(--radius) var(--radius);
     padding: var(--sp-3);
     font-family: var(--font-ui);
     color: var(--ink-soft);
   }
-  .wx-kicker {
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
+  .wx-kicker { color: var(--ink); }
   .wx-place {
     font-size: var(--fs-2xs);
     color: var(--ink-mute);
@@ -264,13 +348,15 @@
   .wx-hero { display: table; width: 100%; margin: var(--sp-3) 0 var(--sp-2); }
   .wx-hero-icon { display: table-cell; width: 30pt; vertical-align: middle; color: var(--ink); }
   .wx-hero-temps { display: table-cell; vertical-align: middle; padding-left: var(--sp-2); }
-  .wx-high { font-size: {{ (fs * 1.9) | round | int }}pt; font-weight: 700; line-height: 1; color: var(--ink); }
-  .wx-low  { font-size: var(--fs-sm); color: var(--ink-mute); }
+  .wx-high { font-family: var(--font-body); font-size: {{ (fs * 2.1) | round | int }}pt; font-weight: 700; line-height: 1; color: var(--ink); }
+  .wx-low  { font-size: var(--fs-sm); color: var(--ink-mute); margin-top: var(--sp-1); }
   .wx-condition {
+    font-family: var(--font-body);
     font-size: var(--fs-sm);
+    font-style: italic;
     color: var(--ink-soft);
     line-height: 1.3;
-    margin-bottom: var(--sp-2);
+    margin-bottom: var(--sp-3);
   }
 
   .wx-facts { width: 100%; border-collapse: collapse; font-size: var(--fs-2xs); }
@@ -280,19 +366,14 @@
     color: var(--ink-mute);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 0.75pt 0;
+    padding: 1pt 0;
+    border-top: 0.5pt dotted var(--panel-rule);
   }
-  .wx-facts td { text-align: right; color: var(--ink); padding: 0.75pt 0; white-space: nowrap; }
+  .wx-facts td { text-align: right; color: var(--ink); padding: 1pt 0; white-space: nowrap; border-top: 0.5pt dotted var(--panel-rule); }
+  .wx-facts tr:first-child th, .wx-facts tr:first-child td { border-top: none; }
 
   .wx-block { margin-top: var(--sp-3); border-top: 1px solid var(--panel-rule); padding-top: var(--sp-2); }
-  .wx-block-label {
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    margin-bottom: var(--sp-1);
-  }
+  .wx-block-label { margin-bottom: var(--sp-1); }
   .wx-parts { width: 100%; border-collapse: collapse; font-size: var(--fs-2xs); }
   .wx-parts td { padding: 1pt 0; vertical-align: middle; }
   .wx-parts .p-label { color: var(--ink-mute); letter-spacing: 0.04em; }
@@ -307,235 +388,355 @@
 
   .wx-icon { display: inline-block; vertical-align: middle; }
 
+  /* ── Rail layout ────────────────────────────────────────────────────────────
+     Stories, emails, jobs and dates share one grid: a narrow left rail for
+     who/when, and the text beside it. The rail keeps lines near 70
+     characters, easier to track on a single-column A5 page than full
+     width, and lines every section up on the same edge as the index.
+     With two columns there is no room for a rail, so it stacks on top. */
+  .row { display: table; width: 100%; table-layout: fixed; }
+  .rail, .main { display: table-cell; vertical-align: top; }
+  .rail {
+    width: {{ rail_w }};
+    padding-right: var(--sp-4);
+    padding-top: 1.5pt;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    line-height: 1.35;
+    color: var(--ink-mute);
+  }
+  .rail .who {
+    display: block;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .rail .when { display: block; margin-top: 1pt; }
+  {% if config.columns == 2 %}
+  .row, .rail, .main { display: block; width: auto; }
+  .rail { padding: 0 0 1pt; }
+  .rail .who, .rail .when { display: inline; }
+  .rail .when::before { content: " · "; }
+  {% endif %}
+
+  /* Body copy: ragged right. Justified text opens uneven word gaps at
+     these line lengths, and e-ink makes them more obvious. */
+  .copy {
+    font-size: var(--fs-body);
+    line-height: {{ T.lh }};
+    color: var(--ink);
+    text-align: left;
+  }
+  .copy.small { font-size: var(--fs-sm); color: var(--ink-soft); }
+
   /* ── Tasks ──────────────────────────────────────────────────────────────── */
   .task-list { list-style: none; }
   .task-item {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--sp-2);
-    padding: var(--sp-2) 0;
-    border-bottom: 1px solid var(--hairline);
+    display: table; width: 100%;
+    padding: var(--sp-3) 0;
+    border-bottom: 0.75pt solid var(--hairline);
     break-inside: avoid;
   }
   .task-item:last-child { border-bottom: none; }
+  .task-box, .task-main { display: table-cell; vertical-align: top; }
+  .task-box { width: 16pt; padding-top: 1pt; }
   .task-checkbox {
-    width: 8pt; height: 8pt;
-    border: 1.25pt solid var(--ink-soft);
-    border-radius: var(--radius);
-    flex-shrink: 0;
-    margin-top: 1.5pt;
     display: inline-block;
+    width: 9pt; height: 9pt;
+    border: 1.1pt solid var(--ink);
+    border-radius: {% if config.theme == 'readable' %}2pt{% else %}0{% endif %};
   }
-  .task-title { font-size: var(--fs-body); line-height: 1.3; }
-  .task-item.overdue .task-title { color: var(--alert); font-weight: 700; }
+  .task-title { font-size: var(--fs-lead); line-height: 1.3; }
+  .task-item.overdue .task-title { font-weight: 700; }
   .task-meta {
     font-family: var(--font-ui);
     font-size: var(--fs-2xs);
     color: var(--ink-mute);
     letter-spacing: 0.03em;
-    margin-top: 0.5pt;
+    margin-top: 1.5pt;
   }
-  .task-project { font-style: italic; }
-  .task-note { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
+  .task-meta .due { color: var(--ink); font-weight: 700; }
+  .task-project { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .task-note {
+    font-size: var(--fs-sm);
+    font-style: italic;
+    color: var(--ink-soft);
+    margin-top: var(--sp-1);
+  }
 
   /* ── Email ──────────────────────────────────────────────────────────────── */
   .email-item {
-    padding: var(--sp-2) 0;
-    border-bottom: 1px solid var(--hairline);
+    padding: var(--sp-3) 0;
+    border-bottom: 0.75pt solid var(--hairline);
     break-inside: avoid;
   }
   .email-item:last-child { border-bottom: none; }
-  .email-from {
+  .email-subject { font-size: var(--fs-body); font-weight: 700; line-height: 1.3; }
+  .email-snippet { margin-top: var(--sp-1); }
+  .email-more {
     font-family: var(--font-ui);
     font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
     color: var(--ink-mute);
+    text-align: right;
+    padding-top: var(--sp-2);
+    break-before: avoid;
   }
-  .email-subject { font-size: var(--fs-body); line-height: 1.3; margin-top: 0.5pt; }
-  .email-snippet { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
-  .email-date { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); margin-top: var(--sp-1); }
 
   /* ── News ───────────────────────────────────────────────────────────────── */
   {% if config.columns == 2 %}
-  .articles-grid { column-count: 2; column-gap: var(--sp-5); column-rule: 1px solid var(--hairline); }
+  .articles-grid { column-count: 2; column-gap: var(--sp-5); column-rule: 0.75pt solid var(--hairline); }
   {% endif %}
-  .feed-section { break-inside: avoid; margin-bottom: var(--sp-4); }
-  .feed-label {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    border-bottom: 1px solid var(--rule-soft);
-    padding-bottom: var(--sp-1);
-    margin-bottom: var(--sp-2);
-  }
   .article {
     break-inside: avoid;
-    padding-bottom: var(--sp-2);
-    margin-bottom: var(--sp-2);
-    border-bottom: 1px solid var(--hairline);
+    padding: var(--sp-3) 0;
+    border-bottom: 0.75pt solid var(--hairline);
   }
-  .article:last-child { border-bottom: none; margin-bottom: 0; }
+  .article.last-in-feed { border-bottom: 1pt solid var(--rule-soft); }
   .article-title {
-    font-size: var(--fs-body);
+    font-size: var(--fs-lead);
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.22;
+    color: var(--ink);
     {% if config.theme == 'retro' %}text-transform: uppercase; letter-spacing: 0.03em;{% endif %}
   }
-  .article-meta {
+  .article-body { margin-top: var(--sp-1); }
+  .article-figure { margin: var(--sp-2) 0; text-align: center; }
+  .article-figure img {
+    max-width: 100%;
+    max-height: {{ 190 if config.paper_size == 'A5' else 260 }}pt;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    border: 0.75pt solid var(--hairline);
+  }
+  .article-figure figcaption, .fig-caption {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-style: italic;
+    color: var(--ink-mute);
+    margin-top: var(--sp-1);
+  }
+
+  /* The paper's first story leads across the full measure, with a kicker. */
+  .article.lead { padding-top: 0; border-bottom: 1pt solid var(--rule-soft); padding-bottom: var(--sp-4); }
+  .article.lead .kicker { margin-bottom: var(--sp-1); }
+  .article.lead .article-title {
+    font-size: {{ fs + 5 }}pt;
+    line-height: 1.1;
+    {% if config.theme != 'retro' %}letter-spacing: -0.005em;{% endif %}
+  }
+  .article.lead .article-body { font-size: var(--fs-lead); margin-top: var(--sp-2); }
+  .article.lead .standfirst-meta {
     font-family: var(--font-ui);
     font-size: var(--fs-2xs);
     color: var(--ink-mute);
-    letter-spacing: 0.03em;
-    margin: 0.5pt 0 var(--sp-1);
+    margin-top: var(--sp-1);
   }
-  .article-body { font-size: var(--fs-sm); color: var(--ink-soft); }
-  .article-body.ai-summary { font-style: italic; }
-  .article-figure { text-align: center; margin: var(--sp-2) 0; }
-  .article-figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-
-  /* ── Learning ───────────────────────────────────────────────────────────── */
-  .lesson { break-inside: avoid; padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); border-bottom: 1px solid var(--hairline); }
-  .lesson:last-child { border-bottom: none; margin-bottom: 0; }
-  .lesson-meta {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-  }
-  .lesson-title { font-size: var(--fs-body); font-weight: 700; line-height: 1.3; margin: 0.5pt 0 var(--sp-1); }
-  .lesson-body { font-size: var(--fs-sm); color: var(--ink-soft); white-space: pre-wrap; }
-
-  /* ── Shell output ───────────────────────────────────────────────────────── */
-  .shell-block { break-inside: avoid; margin-bottom: var(--sp-3); }
-  .shell-block:last-child { margin-bottom: 0; }
-  .shell-name {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    margin-bottom: var(--sp-1);
-  }
-  .shell-output {
-    font-family: var(--font-mono);
-    font-size: {{ [fs - 2, 6] | max }}pt;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    background: var(--panel);
-    border: 1px solid var(--panel-rule);
-    border-radius: var(--radius);
-    padding: var(--sp-2) var(--sp-3);
-  }
-
-  /* ── Wikipedia · Wikiquote · Word of the day ────────────────────────────── */
-  .wikipedia-block, .wikiquote-block, .wotd-block, .sudoku-wrap { break-inside: avoid; }
-  .wikipedia-figure { text-align: center; margin: var(--sp-2) 0; }
-  .wikipedia-thumb { max-width: 120pt; max-height: 90pt; margin: 0 auto; border: 1px solid var(--rule-soft); }
-  .wikipedia-extract { font-size: var(--fs-sm); color: var(--ink-soft); }
-
-  .wikiquote-quote { font-size: var(--fs-lead); font-style: italic; line-height: 1.55; }
-  .wikiquote-attr {
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    color: var(--ink-mute);
-    text-align: right;
-    margin-top: var(--sp-2);
-  }
-
-  .wotd-word { font-size: {{ fs + 3 }}pt; font-weight: 700; line-height: 1.1; }
-  .wotd-label {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    margin: 0.5pt 0 var(--sp-2);
-  }
-  .wotd-definition { font-size: var(--fs-sm); color: var(--ink-soft); }
-
-  /* ── Sudoku ─────────────────────────────────────────────────────────────── */
-  .sudoku-grid { border-collapse: collapse; margin: var(--sp-2) auto; }
-  .sudoku-grid td {
-    width: 16pt; height: 16pt;
-    text-align: center; vertical-align: middle;
-    font-family: var(--font-ui);
-    font-size: {{ [fs - 1, 7] | max }}pt;
-    font-weight: 600;
-    border: 0.5pt solid var(--rule-soft);
-    color: var(--ink);
-  }
-  .sudoku-grid td.box-right  { border-right:  1.5pt solid var(--ink); }
-  .sudoku-grid td.box-bottom { border-bottom: 1.5pt solid var(--ink); }
-  .sudoku-grid tr:first-child td { border-top:    1.5pt solid var(--ink); }
-  .sudoku-grid tr:last-child  td { border-bottom: 1.5pt solid var(--ink); }
-  .sudoku-grid td:first-child { border-left:  1.5pt solid var(--ink); }
-  .sudoku-grid td:last-child  { border-right: 1.5pt solid var(--ink); }
 
   /* ── Jobs ───────────────────────────────────────────────────────────────── */
   .job-item {
-    padding-bottom: var(--sp-2);
-    margin-bottom: var(--sp-2);
-    border-bottom: 1px solid var(--hairline);
+    padding: var(--sp-3) 0;
+    border-bottom: 0.75pt solid var(--hairline);
     break-inside: avoid;
   }
-  .job-item:last-child { border-bottom: none; margin-bottom: 0; }
-  .job-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
-  .job-title { font-size: var(--fs-body); font-weight: 700; line-height: 1.25; flex: 1; }
-  .job-rating { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); white-space: nowrap; flex-shrink: 0; }
+  .job-item:last-child { border-bottom: none; }
+  .job-title { font-size: var(--fs-lead); font-weight: 700; line-height: 1.25; }
   .job-meta {
     font-family: var(--font-ui);
     font-size: var(--fs-2xs);
     color: var(--ink-mute);
     letter-spacing: 0.03em;
-    margin: 0.5pt 0 var(--sp-1);
+    margin: 1pt 0 var(--sp-1);
   }
-  .job-salary { font-size: var(--fs-sm); font-style: italic; color: var(--ink-soft); }
-  .job-body { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--sp-1); }
-  .job-url { font-family: var(--font-ui); font-size: var(--fs-2xs); color: var(--ink-mute); word-break: break-all; margin-top: var(--sp-1); }
+  .job-meta .company { color: var(--ink); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .job-score { font-family: var(--font-body); font-size: {{ fs + 4 }}pt; font-weight: 700; line-height: 1; color: var(--ink); }
+  .job-score small { font-size: var(--fs-2xs); font-weight: 400; color: var(--ink-mute); }
+  .job-stars { display: block; letter-spacing: 0.08em; color: var(--ink); margin-top: 1pt; }
+  .job-salary {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--ink);
+    border: 0.75pt solid var(--ink-mute);
+    border-radius: var(--radius);
+    padding: 0 var(--sp-2);
+    margin: var(--sp-1) 0;
+  }
+  .job-url { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--ink-mute); word-break: break-all; margin-top: var(--sp-1); }
+
+  /* ── Learning ───────────────────────────────────────────────────────────── */
+  .lesson {
+    break-inside: avoid;
+    padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-3);
+    border-left: 2.5pt solid var(--rule);
+    background: var(--panel);
+  }
+  .lesson:last-child { margin-bottom: 0; }
+  .lesson-head { display: table; width: 100%; }
+  .lesson-head .label, .lesson-progress { display: table-cell; vertical-align: middle; }
+  .lesson-progress { text-align: right; width: 70pt; }
+  .progress-track { display: inline-block; width: 60pt; height: 3pt; border: 0.5pt solid var(--ink-mute); vertical-align: middle; }
+  .progress-fill { display: block; height: 100%; background: var(--ink); }
+  .lesson-title { font-size: var(--fs-head); font-weight: 700; line-height: 1.2; margin: var(--sp-2) 0 var(--sp-2); }
+  .lesson-body { white-space: pre-wrap; }
+
+  /* ── Extras: Wikipedia · quote · word ───────────────────────────────────── */
+  .kicker {
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .wikipedia-block { break-inside: avoid; }
+  .wikipedia-title { font-size: var(--fs-head); font-weight: 700; line-height: 1.15; margin-top: var(--sp-1); }
+  .wikipedia-desc { font-style: italic; font-size: var(--fs-sm); color: var(--ink-soft); margin: 1pt 0 var(--sp-2); }
+  .wikipedia-thumb {
+    float: right;
+    width: 84pt;
+    max-height: 110pt;
+    margin: 2pt 0 var(--sp-2) var(--sp-4);
+    border: 0.75pt solid var(--rule-soft);
+  }
+  .clear { clear: both; }
+
+  .otd { margin-top: var(--sp-4); break-inside: avoid; }
+  .otd-list { margin-top: var(--sp-2); border-top: 0.75pt solid var(--rule-soft); }
+  .otd .row { border-bottom: 0.75pt solid var(--hairline); padding: var(--sp-2) 0; }
+  .otd .rail { font-family: var(--font-body); font-size: var(--fs-lead); font-weight: 700; color: var(--ink); padding-top: 0; }
+
+  .desk { display: table; width: 100%; table-layout: fixed; break-inside: avoid; margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1pt solid var(--rule-soft); }
+  .desk.solo { margin-top: 0; padding-top: 0; border-top: none; }
+  .desk-cell { display: table-cell; vertical-align: top; }
+  .desk-cell + .desk-cell { padding-left: var(--sp-5); border-left: 0.75pt solid var(--hairline); }
+  .desk-cell.has-next { padding-right: var(--sp-5); }
+  .desk-cell .kicker { margin-bottom: var(--sp-3); }
+
+  .wikiquote-quote {
+    font-size: {{ fs + 2 }}pt;
+    font-style: italic;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .wikiquote-quote .qmark {
+    display: block;
+    font-size: {{ fs * 3.2 }}pt;
+    line-height: 0.55;
+    height: {{ fs * 1.3 }}pt;
+    font-style: normal;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .wikiquote-attr { margin-top: var(--sp-3); color: var(--ink-soft); }
+
+  .wotd-word { font-size: {{ fs + 8 }}pt; font-weight: 700; line-height: 1.05; }
+  .wotd-say {
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    color: var(--ink-soft);
+    margin-top: var(--sp-1);
+  }
+  .wotd-say em { font-family: var(--font-body); }
+  .wotd-rule { border: none; border-top: 1pt solid var(--ink); width: 20pt; margin: var(--sp-3) 0; }
+  .wotd-example {
+    margin-top: var(--sp-2);
+    padding-left: var(--sp-3);
+    border-left: 1pt solid var(--rule-soft);
+    font-style: italic;
+  }
+  .wotd-dyk { margin-top: var(--sp-3); }
+  .wotd-dyk .kicker { display: block; margin-bottom: 1pt; color: var(--ink-mute); }
+
+  /* ── Shell output ───────────────────────────────────────────────────────── */
+  .shell-block { break-inside: avoid; margin-bottom: var(--sp-4); }
+  .shell-block:last-child { margin-bottom: 0; }
+  .shell-head { display: table; width: 100%; margin-bottom: var(--sp-1); }
+  .shell-head .kicker, .shell-head .shell-status { display: table-cell; }
+  .shell-status { text-align: right; }
+  .shell-output {
+    font-family: var(--font-mono);
+    font-size: {{ [fs - 1.5, 6.5] | max }}pt;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    background: var(--panel);
+    border: 0.75pt solid var(--panel-rule);
+    border-left: 2.5pt solid var(--rule);
+    padding: var(--sp-3) var(--sp-4);
+    color: var(--ink);
+  }
+  .shell-error {
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    color: var(--ink);
+    margin-top: var(--sp-1);
+  }
+
+  /* ── Sudoku ─────────────────────────────────────────────────────────────── */
+  .sudoku-layout { display: table; width: 100%; break-inside: avoid; margin-top: var(--sp-3); }
+  .sudoku-main, .sudoku-side { display: table-cell; vertical-align: top; }
+  .sudoku-side { padding-left: var(--sp-5); }
+  .sudoku-grid { border-collapse: collapse; }
+  .sudoku-grid td {
+    width: {{ 18 if config.paper_size == 'A5' else 22 }}pt;
+    height: {{ 18 if config.paper_size == 'A5' else 22 }}pt;
+    text-align: center; vertical-align: middle;
+    font-family: var(--font-ui);
+    font-size: {{ [fs + 1, 9] | max }}pt;
+    font-weight: 700;
+    border: 0.5pt solid var(--rule-soft);
+    color: var(--ink);
+  }
+  .sudoku-grid td.box-right  { border-right:  1.5pt solid var(--ink); }
+  .sudoku-grid td.box-bottom { border-bottom: 1.5pt solid var(--ink); }
+  .sudoku-grid tr:first-child td { border-top:    2pt solid var(--ink); }
+  .sudoku-grid tr:last-child  td { border-bottom: 2pt solid var(--ink); }
+  .sudoku-grid td:first-child { border-left:  2pt solid var(--ink); }
+  .sudoku-grid td:last-child  { border-right: 2pt solid var(--ink); }
+  .sudoku-grid.mini td {
+    width: 8pt; height: 8pt;
+    font-size: 5.5pt;
+    font-weight: 400;
+    border-width: 0.25pt;
+  }
+  .sudoku-grid.mini td.box-right  { border-right-width:  0.9pt; }
+  .sudoku-grid.mini td.box-bottom { border-bottom-width: 0.9pt; }
+  .sudoku-grid.mini tr:first-child td { border-top-width: 1pt; }
+  .sudoku-grid.mini tr:last-child  td { border-bottom-width: 1pt; }
+  .sudoku-grid.mini td:first-child { border-left-width: 1pt; }
+  .sudoku-grid.mini td:last-child  { border-right-width: 1pt; }
+  .sudoku-note { font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.4; }
+  .sudoku-stat { margin-top: var(--sp-3); }
+  .sudoku-stat .big { font-family: var(--font-body); font-size: {{ fs + 6 }}pt; font-weight: 700; line-height: 1; color: var(--ink); }
+  .sudoku-prev { margin-top: var(--sp-5); }
+  .sudoku-prev .label { display: block; margin-bottom: var(--sp-1); }
 
   /* ── Source error notice ────────────────────────────────────────────────── */
   .source-notice {
     break-inside: avoid;
-    background: var(--panel);
-    border: 1px solid var(--panel-rule);
+    border: 0.75pt dashed var(--ink-mute);
     border-radius: var(--radius);
     padding: var(--sp-2) var(--sp-3);
   }
-  .source-notice-label {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
-    margin-bottom: var(--sp-1);
-  }
+  .source-notice-label { margin-bottom: var(--sp-1); }
   .source-notice-body { font-size: var(--fs-sm); font-style: italic; color: var(--ink-soft); }
 
   /* ── Footer ─────────────────────────────────────────────────────────────── */
   .footer {
-    font-family: var(--font-ui);
-    font-size: var(--fs-2xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
     text-align: center;
-    border-top: 1px solid var(--rule-soft);
-    margin-top: var(--sp-5);
-    padding-top: var(--sp-2);
+    margin-top: var(--sp-6);
+    break-inside: avoid;
+    break-before: avoid;
   }
+  .footer .end-mark { font-size: var(--fs-sm); color: var(--ink); letter-spacing: 0.5em; }
+  .footer .label { margin-top: var(--sp-1); }
 
   p { orphans: 2; widows: 2; }
+  .copy, .article-title, .task-title { orphans: 2; widows: 2; }
 </style>
 </head>
 <body>
@@ -588,201 +789,231 @@
 </svg>
 {%- endmacro -%}
 
-{#- A contents row: source label, headline, page reference. #}
-{%- macro toc_row(source, title, anchor) -%}
+{#- Section header: heavy rule, name on the left, a quiet note on the right. #}
+{%- macro section_header(anchor, name, note='') -%}
+<div id="{{ anchor }}" class="section-header" data-section="{{ name }}">
+  <div class="sh-name">{{ name }}</div>
+  <div class="sh-note">{{ note }}</div>
+</div>
+{%- endmacro -%}
+
+{#- An index row. The section name only prints on a group's first row. #}
+{%- macro toc_row(section, title, anchor, src='') -%}
 <tr>
-  <td class="toc-source">{{ source }}</td>
-  <td class="toc-title">{{ title }}</td>
+  <td class="toc-sec">{{ section }}</td>
+  <td class="toc-title">{{ title }}{% if src %} <span class="toc-src">· {{ src }}</span>{% endif %}</td>
   <td class="toc-pg"><a href="#{{ anchor }}" class="toc-pageref"></a></td>
 </tr>
 {%- endmacro -%}
 
-{%- macro toc_group(label) -%}
-<tr class="toc-group"><td colspan="3"><span class="toc-group-label">{{ label }}</span></td></tr>
-{%- endmacro -%}
+{%- macro plural(n, word) -%}{{ n }} {{ word }}{{ 's' if n != 1 }}{%- endmacro -%}
+
+{#- Figures used by both the front page and the section notes. #}
+{%- set overdue_count = (tasks or []) | selectattr("meta.overdue") | list | length %}
+{%- set unread = (emails[0].meta.unread_total if emails and emails[0].meta.unread_total else (emails or []) | length) %}
+{%- set story_count = (feeds or {}).values() | map('length') | sum %}
+{%- set has_extras = wikipedia or wikiquote or word_of_the_day %}
 
 <!-- ═══════════════════════════ FRONT PAGE ═══════════════════════════ -->
-<div class="front-page">
+<div class="masthead">
+  <h1>{{ config.newspaper_name }}</h1>
+</div>
+<div class="dateline">
+  <div class="dl-left">{{ generated_at }}</div>
+  <div class="dl-center">{% if edition_name %}{{ edition_name }} Edition{% else %}Daily Edition{% endif %}</div>
+  <div class="dl-right">{% if issue_no %}No. {{ issue_no }} · {% endif %}Printed {{ generated_time }}</div>
+</div>
 
-  <div class="masthead">
-    <h1>{{ config.newspaper_name }}</h1>
-    <hr class="rule">
-    <div class="dateline">
-      {{ generated_at }}<span class="sep">·</span>{{ generated_time }}
-      {%- if edition_name %}<span class="sep">·</span>{{ edition_name }} Edition{% endif %}
-    </div>
+{#- At a glance: the handful of numbers worth knowing before turning a page. #}
+<div class="glance">
+  {% if tasks %}
+  <div class="glance-cell">
+    <div class="glance-num">{{ tasks | length }}</div>
+    <div class="glance-cap label">Tasks</div>
+    <div class="glance-sub{{ ' flag' if overdue_count }}">{% if overdue_count %}{{ overdue_count }} overdue{% else %}due today{% endif %}</div>
   </div>
+  {% endif %}
+  {% if emails %}
+  <div class="glance-cell">
+    <div class="glance-num">{{ unread }}</div>
+    <div class="glance-cap label">Inbox</div>
+    <div class="glance-sub">unread</div>
+  </div>
+  {% endif %}
+  {% if weather and weather.meta.high is not none %}
+  <div class="glance-cell">
+    <div class="glance-num">{{ weather.meta.high }}°<span class="unit"> / {{ weather.meta.low }}°</span></div>
+    <div class="glance-cap label">Weather</div>
+    <div class="glance-sub">{% if weather.meta.precip_chance is not none %}{{ weather.meta.precip_chance }}% rain{% else %}{{ weather.meta.condition }}{% endif %}</div>
+  </div>
+  {% endif %}
+  {% if feeds %}
+  <div class="glance-cell">
+    <div class="glance-num">{{ story_count }}</div>
+    <div class="glance-cap label">Stories</div>
+    <div class="glance-sub">{{ plural(feeds | length, 'source') }}</div>
+  </div>
+  {% endif %}
+  {% if job_blocks %}
+  <div class="glance-cell">
+    <div class="glance-num">{{ job_blocks | length }}</div>
+    <div class="glance-cap label">Openings</div>
+    <div class="glance-sub">new today</div>
+  </div>
+  {% endif %}
+</div>
 
-  <div class="front-grid">
+<div class="front-grid">
 
-    <!-- CONTENTS -->
-    <div class="toc-panel">
-      <div class="section-header">Contents</div>
-      <table class="toc-table">
-        <thead>
-          <tr>
-            <th class="toc-source">Source</th>
-            <th>Headline</th>
-            <th class="th-pg">Pg.</th>
-          </tr>
-        </thead>
-        <tbody>
+  <!-- INDEX -->
+  <div class="toc-panel">
+    <div class="toc-kicker label" style="color: var(--ink)">Inside Today</div>
+    <table class="toc-table">
 
-          {% if tasks %}
-          {{ toc_group('Tasks') }}
-          {%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
-          {{ toc_row('Today', tasks | length ~ ' task' ~ ('s' if tasks | length != 1 else '') ~ (' · ' ~ overdue_count ~ ' overdue' if overdue_count else ''), 'section-tasks') }}
-          {% endif %}
+      {% if tasks %}
+      <tbody>{{ toc_row('Tasks', plural(tasks | length, 'task') ~ (' · ' ~ overdue_count ~ ' overdue' if overdue_count else ''), 'section-tasks') }}</tbody>
+      {% endif %}
 
-          {% if emails %}
-          {{ toc_group('Email') }}
-          {{ toc_row('Inbox', emails | length ~ ' message' ~ ('s' if emails | length != 1 else ''), 'section-emails') }}
-          {% endif %}
+      {% if emails %}
+      <tbody>{{ toc_row('Inbox', plural(emails | length, 'message'), 'section-emails') }}</tbody>
+      {% endif %}
 
-          {% if lessons %}
-          {{ toc_group('Learning') }}
-          {% for lesson in lessons %}{{ toc_row(lesson.source, lesson.title, 'section-learning') }}{% endfor %}
-          {% endif %}
-
-          {% if shell_outputs %}
-          {{ toc_group('Status') }}
-          {% for s in shell_outputs %}{{ toc_row('Shell', s.title, 'section-shell') }}{% endfor %}
-          {% endif %}
-
-          {% if wikipedia %}
-          {{ toc_group('Wikipedia') }}
-          {{ toc_row('Featured', 'Unavailable' if wikipedia.type == 'source_error' else wikipedia.title, 'section-wikipedia') }}
-          {% endif %}
-
-          {% if wikiquote %}
-          {{ toc_group('Wikiquote') }}
-          {{ toc_row('Daily', 'Unavailable' if wikiquote.type == 'source_error' else (wikiquote.meta.attribution or wikiquote.title), 'section-wikiquote') }}
-          {% endif %}
-
-          {% if word_of_the_day %}
-          {{ toc_group('Word') }}
-          {{ toc_row('M-W', 'Unavailable' if word_of_the_day.type == 'source_error' else word_of_the_day.title, 'section-wotd') }}
-          {% endif %}
-
-          {% if sudoku %}
-          {{ toc_group('Puzzle') }}
-          {{ toc_row('Sudoku', sudoku.meta.difficulty | capitalize, 'section-sudoku') }}
-          {% endif %}
-
-          {% if feeds %}
-          {{ toc_group('News') }}
-          {% set ns = namespace(idx=0) %}
-          {% for feed_name, articles in feeds.items() %}
-            {% for article in articles %}
-            {{ toc_row(feed_name, article.title, 'art-' ~ ns.idx) }}
-            {% set ns.idx = ns.idx + 1 %}
-            {% endfor %}
+      {% if feeds %}
+      <tbody>
+        {% set ns = namespace(idx=0) %}
+        {% for feed_name, articles in feeds.items() %}
+          {% for article in articles %}
+          {{ toc_row('News' if ns.idx == 0 else '', article.title, 'art-' ~ ns.idx, feed_name) }}
+          {% set ns.idx = ns.idx + 1 %}
           {% endfor %}
-          {% endif %}
+        {% endfor %}
+      </tbody>
+      {% endif %}
 
-          {% if job_blocks %}
-          {{ toc_group('Positions') }}
-          {{ toc_row('Jobs', job_blocks | length ~ ' opening' ~ ('s' if job_blocks | length != 1 else ''), 'section-jobs') }}
-          {% endif %}
+      {% if job_blocks %}
+      <tbody>{{ toc_row('Jobs', plural(job_blocks | length, 'new opening'), 'section-jobs') }}</tbody>
+      {% endif %}
 
-        </tbody>
-      </table>
-    </div>
+      {% if lessons %}
+      <tbody>
+        {% for lesson in lessons %}{{ toc_row('Learning' if loop.first else '', lesson.title, 'section-learning', lesson.source) }}{% endfor %}
+      </tbody>
+      {% endif %}
 
-    <!-- TODAY'S FORECAST -->
-    {% if weather %}
-    {% set wx = weather.meta %}
-    {% set deg = wx.temp_symbol %}
-    <div class="wx-panel">
-      <div class="wx">
+      {% if has_extras %}
+      <tbody>
+        {% set xs = namespace(first=True) %}
+        {% if wikipedia %}{{ toc_row('Extras', 'Unavailable' if wikipedia.type == 'source_error' else wikipedia.title, 'section-wikipedia', 'Wikipedia') }}{% set xs.first = False %}{% endif %}
+        {% if wikiquote %}{{ toc_row('Extras' if xs.first else '', 'Unavailable' if wikiquote.type == 'source_error' else (wikiquote.meta.attribution or wikiquote.title), 'section-wikiquote', 'Quote') }}{% set xs.first = False %}{% endif %}
+        {% if word_of_the_day %}{{ toc_row('Extras' if xs.first else '', 'Unavailable' if word_of_the_day.type == 'source_error' else word_of_the_day.title, 'section-wotd', 'Word') }}{% endif %}
+      </tbody>
+      {% endif %}
 
-        <div class="wx-head">
-          <div class="wx-kicker">Today's Forecast</div>
-          {% if wx.location %}<div class="wx-place">{{ wx.location }}</div>{% endif %}
-        </div>
+      {% if shell_outputs %}
+      <tbody>
+        {% for s in shell_outputs %}{{ toc_row('Status' if loop.first else '', s.title, 'section-shell') }}{% endfor %}
+      </tbody>
+      {% endif %}
 
-        <div class="wx-hero">
-          <div class="wx-hero-icon">{{ wx_icon(wx.icon, 26) }}</div>
-          <div class="wx-hero-temps">
-            <div class="wx-high">{{ wx.high if wx.high is not none else '–' }}{{ deg }}</div>
-            <div class="wx-low">Low {{ wx.low if wx.low is not none else '–' }}{{ deg }}</div>
-          </div>
-        </div>
+      {% if sudoku %}
+      <tbody>{{ toc_row('Puzzle', 'Sudoku · ' ~ (sudoku.meta.difficulty | capitalize), 'section-sudoku') }}</tbody>
+      {% endif %}
 
-        <div class="wx-condition">{{ wx.condition }}</div>
-
-        <table class="wx-facts">
-          {% if wx.precip_chance is not none %}
-          <tr><th>Rain</th><td>{{ wx.precip_chance }}%{% if wx.precip_sum %} · {{ wx.precip_sum }}mm{% endif %}</td></tr>
-          {% endif %}
-          {% if wx.wind_max is not none %}
-          <tr><th>Wind</th><td>{{ wx.wind_max }} km/h</td></tr>
-          {% endif %}
-          {% if wx.feels_high is not none %}
-          <tr><th>Feels</th><td>{{ wx.feels_low }}–{{ wx.feels_high }}{{ deg }}</td></tr>
-          {% endif %}
-          {% if wx.uv_max is not none %}
-          <tr><th>UV index</th><td>{{ wx.uv_max }}</td></tr>
-          {% endif %}
-          {% if wx.sunrise %}
-          <tr><th>Sun</th><td>{{ wx.sunrise }} – {{ wx.sunset }}</td></tr>
-          {% endif %}
-        </table>
-
-        {% if wx.day_parts %}
-        <div class="wx-block">
-          <div class="wx-block-label">Through the day</div>
-          <table class="wx-parts">
-            {% for part in wx.day_parts %}
-            <tr>
-              <td class="p-label">{{ part.label }}</td>
-              <td class="p-icon">{{ wx_icon(part.icon, 9) }}</td>
-              <td class="p-temp">{{ part.temp }}{{ deg }}</td>
-              <td class="p-precip">{% if part.precip is not none %}{{ part.precip }}%{% endif %}</td>
-            </tr>
-            {% endfor %}
-          </table>
-        </div>
-        {% endif %}
-
-        {% set tmrw = wx.tomorrow %}
-        {% if tmrw and tmrw.high is not none %}
-        <div class="wx-block">
-          <div class="wx-block-label">Tomorrow</div>
-          <div class="wx-tomorrow">
-            <div class="t-icon">{{ wx_icon(tmrw.icon, 12) }}</div>
-            <div class="t-text">
-              <span class="t-temps">{{ tmrw.high }}{{ deg }} / {{ tmrw.low }}{{ deg }}</span><br>
-              {{ tmrw.condition }}{% if tmrw.precip is not none %} · {{ tmrw.precip }}% rain{% endif %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-      </div>
-    </div>
-    {% endif %}
-
+    </table>
   </div>
-</div><!-- /front-page -->
+
+  <!-- TODAY'S FORECAST -->
+  {% if weather %}
+  {% set wx = weather.meta %}
+  {% set deg = '°' %}
+  <div class="wx-panel">
+    <div class="wx">
+
+      <div class="wx-head">
+        <div class="wx-kicker label">Today's Forecast</div>
+        <div class="wx-place">{% if wx.location %}{{ wx.location }} · {% endif %}{{ wx.temp_symbol }}</div>
+      </div>
+
+      <div class="wx-hero">
+        <div class="wx-hero-icon">{{ wx_icon(wx.icon, 26) }}</div>
+        <div class="wx-hero-temps">
+          <div class="wx-high">{{ wx.high if wx.high is not none else '–' }}{{ deg }}</div>
+          <div class="wx-low">Low {{ wx.low if wx.low is not none else '–' }}{{ deg }}</div>
+        </div>
+      </div>
+
+      <div class="wx-condition">{{ wx.condition }}</div>
+
+      <table class="wx-facts">
+        {% if wx.precip_chance is not none %}
+        <tr><th>Rain</th><td>{{ wx.precip_chance }}%{% if wx.precip_sum %} · {{ wx.precip_sum }}mm{% endif %}</td></tr>
+        {% endif %}
+        {% if wx.wind_max is not none %}
+        <tr><th>Wind</th><td>{{ wx.wind_max }} {{ wx.wind_unit or 'km/h' }}</td></tr>
+        {% endif %}
+        {% if wx.feels_high is not none %}
+        <tr><th>Feels</th><td>{{ wx.feels_low }}–{{ wx.feels_high }}{{ deg }}</td></tr>
+        {% endif %}
+        {% if wx.uv_max is not none %}
+        <tr><th>UV</th><td>{{ wx.uv_max }}{% if wx.uv_label %} · {{ wx.uv_label }}{% endif %}</td></tr>
+        {% endif %}
+        {% if wx.sunrise %}
+        <tr><th>Sun</th><td>{{ wx.sunrise }} – {{ wx.sunset }}</td></tr>
+        {% endif %}
+      </table>
+
+      {% if wx.day_parts %}
+      <div class="wx-block">
+        <div class="wx-block-label label">Through the day</div>
+        <table class="wx-parts">
+          {% for part in wx.day_parts %}
+          <tr>
+            <td class="p-label">{{ part.label }}</td>
+            <td class="p-icon">{{ wx_icon(part.icon, 9) }}</td>
+            <td class="p-temp">{{ part.temp }}{{ deg }}</td>
+            <td class="p-precip">{% if part.precip is not none %}{{ part.precip }}%{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% endif %}
+
+      {% set tmrw = wx.tomorrow %}
+      {% if tmrw and tmrw.high is not none %}
+      <div class="wx-block">
+        <div class="wx-block-label label">Tomorrow</div>
+        <div class="wx-tomorrow">
+          <div class="t-icon">{{ wx_icon(tmrw.icon, 12) }}</div>
+          <div class="t-text">
+            <span class="t-temps">{{ tmrw.high }}{{ deg }} / {{ tmrw.low }}{{ deg }}</span><br>
+            {{ tmrw.condition }}{% if tmrw.precip is not none %} · {{ tmrw.precip }}% rain{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+
+</div>
 
 <!-- ═══════════════════════════ CONTENT ═══════════════════════════ -->
 
 {% if tasks %}
-{%- set overdue_count = tasks | selectattr("meta.overdue") | list | length %}
-<div id="section-tasks" class="section-header">
-  Today's Tasks{% if overdue_count %} <span class="count">· {{ overdue_count }} overdue</span>{% endif %}
-</div>
+{{ section_header('section-tasks', "Today's Tasks", (overdue_count ~ ' overdue · ' if overdue_count else '') ~ plural(tasks | length, 'task')) }}
 <ul class="task-list">
   {% for task in tasks %}
   <li class="task-item{% if task.meta.overdue %} overdue{% endif %}">
-    <span class="task-checkbox"></span>
-    <div>
-      <div class="task-title">{{ task.title }}</div>
+    <div class="task-box"><span class="task-checkbox"></span></div>
+    <div class="task-main">
+      <div class="task-title">
+        {%- if task.meta.overdue %}<span class="tag">Overdue</span> {% elif task.meta.priority >= 5 %}<span class="tag outline">High</span> {% endif -%}
+        {{ task.title }}
+      </div>
       <div class="task-meta">
         {%- if task.meta.project %}<span class="task-project">{{ task.meta.project }}</span> · {% endif -%}
-        {%- if task.meta.overdue %}Overdue · {% endif -%}
-        Due {{ task.published }}
+        <span class="due">{{ task.published }}</span>
       </div>
       {% if task.body %}<div class="task-note">{{ task.body }}</div>{% endif %}
     </div>
@@ -792,156 +1023,233 @@
 {% endif %}
 
 {% if emails %}
-<div id="section-emails" class="section-header">
-  Email{% if emails[0].meta.unread_total %} <span class="count">· {{ emails[0].meta.unread_total }} unread</span>{% endif %}
-</div>
+{{ section_header('section-emails', 'Inbox', unread ~ ' unread') }}
 {% for email in emails %}
-<div class="email-item">
-  <div class="email-from">{{ email.meta.from }}</div>
-  <div class="email-subject">{{ email.title }}</div>
-  {% if email.body %}<div class="email-snippet">{{ email.body }}</div>{% endif %}
-  {% if email.published %}<div class="email-date">{{ email.published }}</div>{% endif %}
-</div>
-{% endfor %}
-{% endif %}
-
-{% if lessons %}
-<div id="section-learning" class="section-header">Learning</div>
-{% for lesson in lessons %}
-<div class="lesson">
-  <div class="lesson-meta">{{ lesson.source }} · {{ lesson.published }}</div>
-  <div class="lesson-title">{{ lesson.title }}</div>
-  {% if lesson.body %}<div class="lesson-body">{{ lesson.body }}</div>{% endif %}
-</div>
-{% endfor %}
-{% endif %}
-
-{% if shell_outputs %}
-<div id="section-shell" class="section-header">System Status</div>
-{% for s in shell_outputs %}
-<div class="shell-block">
-  <div class="shell-name">{{ s.title }}</div>
-  <pre class="shell-output">{{ s.body }}</pre>
-</div>
-{% endfor %}
-{% endif %}
-
-{% if wikipedia %}
-<div id="section-wikipedia" class="section-header">Wikipedia · Article of the Day</div>
-{% if wikipedia.type == 'source_error' %}
-<div class="source-notice">
-  <div class="source-notice-label">{{ wikipedia.title }}</div>
-  <div class="source-notice-body">{{ wikipedia.body }}</div>
-</div>
-{% else %}
-<div class="wikipedia-block">
-  <div class="article-title">{{ wikipedia.title }}</div>
-  <div class="article-meta">{{ wikipedia.published }}</div>
-  {% if wikipedia.meta.thumbnail %}
-  <div class="wikipedia-figure">
-    <img class="wikipedia-thumb" src="{{ wikipedia.meta.thumbnail }}" alt="{{ wikipedia.title }}">
+<div class="email-item row">
+  <div class="rail">
+    <span class="who">{{ email.meta.from }}</span>
+    {% if email.published %}<span class="when">{{ email.published }}</span>{% endif %}
   </div>
+  <div class="main">
+    <div class="email-subject">{{ email.title }}</div>
+    {% if email.body %}<div class="email-snippet copy small">{{ email.body }}</div>{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% if unread is number and unread > emails | length %}
+<div class="email-more">+ {{ unread - emails | length }} more unread in your inbox</div>
+{% endif %}
+{% endif %}
+
+{#- One story. The lead runs full width; the rest sit beside the rail. #}
+{%- macro story(article, idx, feed_name, first_in_feed, last_in_feed) -%}
+{%- set ai = article.get('ai_summarised') -%}
+{%- if idx == 0 %}
+<div class="article lead" id="art-{{ idx }}">
+  <div class="kicker">{{ feed_name }}</div>
+  <div class="article-title">{{ article.title }}</div>
+  {% if article.image_url %}<div class="article-figure"><img src="{{ article.image_url }}" alt=""></div>{% endif %}
+  {% if article.body %}<div class="article-body copy">{{ article.body }}</div>{% endif %}
+  {% if article.published or ai %}
+  <div class="standfirst-meta">{{ article.published }}{% if ai %} <span class="tag outline">AI summary</span>{% endif %}</div>
   {% endif %}
-  <div class="wikipedia-extract">{{ wikipedia.body }}</div>
 </div>
-{% endif %}
-{% endif %}
-
-{% if wikiquote %}
-<div id="section-wikiquote" class="section-header">Wikiquote · Quote of the Day</div>
-{% if wikiquote.type == 'source_error' %}
-<div class="source-notice">
-  <div class="source-notice-label">{{ wikiquote.title }}</div>
-  <div class="source-notice-body">{{ wikiquote.body }}</div>
+{%- else %}
+<div class="article row{{ ' last-in-feed' if last_in_feed }}" id="art-{{ idx }}">
+  <div class="rail">
+    {% if first_in_feed %}<span class="who">{{ feed_name }}</span>{% endif %}
+    {% if article.published %}<span class="when">{{ article.published }}</span>{% endif %}
+    {% if ai %}<span class="when"><span class="tag outline">AI</span></span>{% endif %}
+  </div>
+  <div class="main">
+    <div class="article-title">{{ article.title }}</div>
+    {% if article.image_url %}<div class="article-figure"><img src="{{ article.image_url }}" alt=""></div>{% endif %}
+    {% if article.body %}<div class="article-body copy small">{{ article.body }}</div>{% endif %}
+  </div>
 </div>
-{% else %}
-<div class="wikiquote-block">
-  <div class="wikiquote-quote">“{{ wikiquote.body }}”</div>
-  {% if wikiquote.meta.attribution %}
-  <div class="wikiquote-attr">— {{ wikiquote.meta.attribution }}</div>
-  {% endif %}
-</div>
-{% endif %}
-{% endif %}
-
-{% if word_of_the_day %}
-<div id="section-wotd" class="section-header">Word of the Day</div>
-{% if word_of_the_day.type == 'source_error' %}
-<div class="source-notice">
-  <div class="source-notice-label">{{ word_of_the_day.title }}</div>
-  <div class="source-notice-body">{{ word_of_the_day.body }}</div>
-</div>
-{% else %}
-<div class="wotd-block">
-  <div class="wotd-word">{{ word_of_the_day.title }}</div>
-  <div class="wotd-label">{{ word_of_the_day.source }} · {{ word_of_the_day.published }}</div>
-  {% if word_of_the_day.body %}<div class="wotd-definition">{{ word_of_the_day.body }}</div>{% endif %}
-</div>
-{% endif %}
-{% endif %}
-
-{% if sudoku %}
-<div id="section-sudoku" class="section-header">Sudoku · {{ sudoku.meta.difficulty | capitalize }}</div>
-<div class="sudoku-wrap">
-  <table class="sudoku-grid">
-    {% for r in range(9) %}
-    <tr>
-      {% for c in range(9) %}
-      {%- set val = sudoku.meta.puzzle[r][c] %}
-      <td class="{{ 'given' if val != 0 else 'empty' }}{{ ' box-right' if c in (2, 5) }}{{ ' box-bottom' if r in (2, 5) }}">{{ val if val != 0 else '' }}</td>
-      {% endfor %}
-    </tr>
-    {% endfor %}
-  </table>
-</div>
-{% endif %}
+{%- endif %}
+{%- endmacro -%}
 
 {% if feeds %}
-<div id="section-news" class="section-header">News</div>
+{{ section_header('section-news', 'News', story_count ~ (' story' if story_count == 1 else ' stories') ~ ' · ' ~ plural(feeds | length, 'source')) }}
 <div class="articles-grid">
   {% set ns = namespace(idx=0) %}
   {% for feed_name, articles in feeds.items() %}
-  <div class="feed-section">
-    <div class="feed-label">{{ feed_name }}</div>
     {% for article in articles %}
-    <div class="article" id="art-{{ ns.idx }}">
-      <div class="article-title">{{ article.title }}</div>
-      {% if article.published %}<div class="article-meta">{{ article.published }}</div>{% endif %}
-      {% if article.image_url %}
-      <div class="article-figure">
-        <img src="{{ article.image_url }}" alt="{{ article.title }}">
-      </div>
-      {% endif %}
-      {% if article.body %}
-      <div class="article-body{% if article.get('ai_summarised') %} ai-summary{% endif %}">{{ article.body }}</div>
-      {% endif %}
-    </div>
+    {{ story(article, ns.idx, feed_name, loop.first or ns.idx == 1, loop.last) }}
     {% set ns.idx = ns.idx + 1 %}
     {% endfor %}
-  </div>
   {% endfor %}
 </div>
 {% endif %}
 
 {% if job_blocks %}
-<div id="section-jobs" class="section-header">New Positions</div>
+{{ section_header('section-jobs', 'New Positions', plural(job_blocks | length, 'opening') ~ ' · best match first') }}
 {% for job in job_blocks %}
-<div class="job-item">
-  <div class="job-header">
-    <span class="job-title">{{ job.title }}</span>
-    <span class="job-rating">{{ job.meta.rating_stars }} {{ job.meta.rating }}/5</span>
+<div class="job-item row">
+  <div class="rail">
+    <span class="job-score">{{ job.meta.rating }}<small> / 5</small></span>
+    <span class="job-stars">{{ job.meta.rating_stars }}</span>
   </div>
-  <div class="job-meta">
-    {{ job.meta.company }}{% if job.meta.location %} · {{ job.meta.location }}{% endif %} · {{ job.source }}{% if job.published %} · {{ job.published }}{% endif %}
+  <div class="main">
+    <div class="job-title">{{ job.title }}</div>
+    <div class="job-meta">
+      <span class="company">{{ job.meta.company }}</span>{% if job.meta.location %} · {{ job.meta.location }}{% endif %} · via {{ job.source }}{% if job.published %} · posted {{ job.published }}{% endif %}
+    </div>
+    {% if job.meta.salary %}<div class="job-salary">{{ job.meta.salary }}</div>{% endif %}
+    {% if job.body %}<div class="copy small">{{ job.body }}</div>{% endif %}
+    <div class="job-url">{{ job.meta.url }}</div>
   </div>
-  {% if job.meta.salary %}<div class="job-salary">{{ job.meta.salary }}</div>{% endif %}
-  {% if job.body %}<div class="job-body">{{ job.body }}</div>{% endif %}
-  <div class="job-url">{{ job.meta.url }}</div>
 </div>
 {% endfor %}
 {% endif %}
 
-<div class="footer">{{ config.newspaper_name }} · {{ generated_at }}</div>
+{% if lessons %}
+{{ section_header('section-learning', 'Learning', plural(lessons | length, 'lesson') ~ ' today') }}
+{% for lesson in lessons %}
+{%- set done = lesson.meta.lesson_num if lesson.meta and lesson.meta.lesson_num else 0 %}
+{%- set total = lesson.meta.total_lessons if lesson.meta and lesson.meta.total_lessons else 0 %}
+<div class="lesson">
+  <div class="lesson-head">
+    <div class="label" style="color: var(--ink)">{{ lesson.source }} · {{ lesson.published }}</div>
+    {% if total %}
+    <div class="lesson-progress"><span class="progress-track"><span class="progress-fill" style="width: {{ (100 * done / total) | round(1) }}%"></span></span></div>
+    {% endif %}
+  </div>
+  <div class="lesson-title">{{ lesson.title }}</div>
+  {% if lesson.body %}<div class="lesson-body copy">{{ lesson.body }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{#- Wikipedia, the quote and the word share one "Extras" section. #}
+{%- macro notice(block) -%}
+<div class="source-notice">
+  <div class="source-notice-label label">{{ block.title }}</div>
+  <div class="source-notice-body">{{ block.body }}</div>
+</div>
+{%- endmacro -%}
+
+{% if has_extras %}
+{{ section_header('section-extras', 'Extras', 'Wikipedia · Wikiquote · Merriam-Webster') }}
+
+{% if wikipedia %}
+<div id="section-wikipedia" class="wikipedia-block">
+  <div class="kicker">From Wikipedia · Today's featured article</div>
+  {% if wikipedia.type == 'source_error' %}
+  {{ notice(wikipedia) }}
+  {% else %}
+  <div class="wikipedia-title">{{ wikipedia.title }}</div>
+  {% if wikipedia.meta.description %}{% set d = wikipedia.meta.description %}<div class="wikipedia-desc">{{ d[:1] | upper }}{{ d[1:] }}</div>{% endif %}
+  {% if wikipedia.meta.thumbnail %}<img class="wikipedia-thumb" src="{{ wikipedia.meta.thumbnail }}" alt="">{% endif %}
+  <div class="copy small" style="color: var(--ink)">{{ wikipedia.body }}</div>
+  <div class="clear"></div>
+  {% endif %}
+</div>
+
+{% if wikipedia.meta and wikipedia.meta.on_this_day %}
+<div class="otd">
+  <div class="kicker">On this day</div>
+  <div class="otd-list">
+    {% for ev in wikipedia.meta.on_this_day %}
+    <div class="row">
+      <div class="rail">{{ ev.year }}</div>
+      <div class="main copy small">{{ ev.text }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if wikiquote or word_of_the_day %}
+<div class="desk{{ ' solo' if not wikipedia }}">
+  {% if wikiquote %}
+  <div id="section-wikiquote" class="desk-cell{{ ' has-next' if word_of_the_day }}">
+    <div class="kicker">Quote of the Day</div>
+    {% if wikiquote.type == 'source_error' %}
+    {{ notice(wikiquote) }}
+    {% else %}
+    <div class="wikiquote-quote"><span class="qmark">“</span>{{ wikiquote.body }}</div>
+    {% if wikiquote.meta.attribution %}<div class="wikiquote-attr label">— {{ wikiquote.meta.attribution }}</div>{% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if word_of_the_day %}
+  {%- set wm = word_of_the_day.meta or {} %}
+  <div id="section-wotd" class="desk-cell">
+    <div class="kicker">Word of the Day</div>
+    {% if word_of_the_day.type == 'source_error' %}
+    {{ notice(word_of_the_day) }}
+    {% else %}
+    <div class="wotd-word">{{ word_of_the_day.title }}</div>
+    {% if wm.pronunciation or wm.part_of_speech %}
+    <div class="wotd-say">{% if wm.pronunciation %}\{{ wm.pronunciation }}\{% endif %}{% if wm.pronunciation and wm.part_of_speech %} · {% endif %}{% if wm.part_of_speech %}<em>{{ wm.part_of_speech }}</em>{% endif %}</div>
+    {% endif %}
+    <hr class="wotd-rule">
+    {% if word_of_the_day.body %}<div class="copy small" style="color: var(--ink)">{{ word_of_the_day.body }}</div>{% endif %}
+    {% if wm.example %}<div class="wotd-example copy small">{{ wm.example }}</div>{% endif %}
+    {% if wm.did_you_know and not wikiquote %}<div class="wotd-dyk copy small"><span class="kicker">Did you know?</span>{{ wm.did_you_know }}</div>{% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if shell_outputs %}
+{{ section_header('section-shell', 'System Status', plural(shell_outputs | length, 'check')) }}
+{% for s in shell_outputs %}
+<div class="shell-block">
+  <div class="shell-head">
+    <div class="kicker">{{ s.title }}</div>
+    <div class="shell-status">{% if s.meta and s.meta.error %}<span class="tag">Error</span>{% else %}<span class="tag outline">OK</span>{% endif %}</div>
+  </div>
+  <pre class="shell-output">{{ s.body }}</pre>
+  {% if s.meta and s.meta.error and s.body and not s.body.startswith('[Error') %}<div class="shell-error">{{ s.meta.error }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{%- macro sudoku_grid(grid, cls='') -%}
+<table class="sudoku-grid {{ cls }}">
+  {% for r in range(9) %}
+  <tr>
+    {% for c in range(9) %}
+    {%- set val = grid[r][c] %}
+    <td class="{{ 'box-right' if c in (2, 5) }}{{ ' box-bottom' if r in (2, 5) }}">{{ val if val != 0 else '' }}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+{%- endmacro -%}
+
+{% if sudoku %}
+{{ section_header('section-sudoku', 'Sudoku', sudoku.meta.difficulty) }}
+<div class="sudoku-layout">
+  <div class="sudoku-main">{{ sudoku_grid(sudoku.meta.puzzle) }}</div>
+  <div class="sudoku-side">
+    <div class="sudoku-note">Fill each row, column and 3×3 box with the digits 1 to 9. Every puzzle has exactly one solution.</div>
+    {% if sudoku.meta.clues %}
+    <div class="sudoku-stat">
+      <div class="big">{{ sudoku.meta.clues }}</div>
+      <div class="label">Clues given</div>
+    </div>
+    {% endif %}
+    {% if sudoku.meta.previous_solution %}
+    <div class="sudoku-prev">
+      <span class="label">Yesterday's solution</span>
+      {{ sudoku_grid(sudoku.meta.previous_solution, 'mini') }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="footer">
+  <div class="end-mark">■ ■ ■</div>
+  <div class="label">End of the {{ edition_name ~ ' ' if edition_name }}edition · {{ config.newspaper_name }}</div>
+</div>
 
 </body>
 </html>

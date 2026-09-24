@@ -26,6 +26,19 @@ Runs as a single Docker container with a web UI for managing everything.
 
 ---
 
+## Design samples
+
+`docs/samples/` holds a sample newspaper in every theme, rendered with mock data so every
+section (tasks, inbox, news, jobs, learning, extras, system status, sudoku) shows up at once.
+Regenerate them after changing `app/templates/newspaper.html`:
+
+```bash
+python -m app.sample --all docs/samples                              # A5, one PDF per theme
+python -m app.sample --theme traditional --paper A4 --columns 2 --out a4.pdf
+```
+
+---
+
 ## Deployment
 
 - [Unraid — Community Applications (recommended)](#unraid--community-applications-recommended)

@@ -59,6 +59,16 @@ def _condition(code) -> str:
     return _WMO_CODES.get(code, "Unknown")
 
 
+def _uv_label(uv) -> str:
+    """WHO exposure category, so "7" reads as something you can act on."""
+    if uv is None:
+        return ""
+    for limit, label in ((2, "Low"), (5, "Moderate"), (7, "High"), (10, "Very high")):
+        if uv <= limit:
+            return label
+    return "Extreme"
+
+
 def _at(seq, index, default=None):
     try:
         value = seq[index]
@@ -90,6 +100,9 @@ def fetch() -> list[dict]:
     units = cfg.get("WEATHER_UNITS", "celsius").lower()
     temp_unit = "celsius" if units == "celsius" else "fahrenheit"
     temp_symbol = "°C" if temp_unit == "celsius" else "°F"
+    # Fahrenheit readers expect wind in mph; everyone else gets km/h.
+    wind_unit = "kmh" if temp_unit == "celsius" else "mph"
+    wind_label = "km/h" if wind_unit == "kmh" else "mph"
     location = cfg.get("WEATHER_LOCATION_NAME", "")
 
     try:
@@ -112,7 +125,7 @@ def fetch() -> list[dict]:
                 "sunrise", "sunset",
             ],
             "temperature_unit": temp_unit,
-            "windspeed_unit": "kmh",
+            "windspeed_unit": wind_unit,
             "forecast_days": 2,
             "timezone": "auto",
         }, timeout=10)
@@ -205,7 +218,7 @@ def fetch() -> list[dict]:
     if precip_chance is not None:
         summary += f" {precip_chance}% chance of rain."
     if wind_max is not None:
-        summary += f" Wind up to {wind_max} km/h."
+        summary += f" Wind up to {wind_max} {wind_label}."
     if sunrise and sunset:
         summary += f" Sunrise {sunrise}, sunset {sunset}."
 
@@ -227,7 +240,9 @@ def fetch() -> list[dict]:
             "precip_chance": precip_chance,
             "precip_sum": precip_sum,
             "wind_max": wind_max,
+            "wind_unit": wind_label,
             "uv_max": uv_max,
+            "uv_label": _uv_label(uv_max),
             "sunrise": sunrise,
             "sunset": sunset,
             # Rest of the outlook

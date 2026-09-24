@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import socket
 import urllib.error
 import urllib.request
@@ -56,21 +57,25 @@ class _QuoteParser(HTMLParser):
             return
         if tag == "blockquote" and self._in_bq:
             self._in_bq = False
-            self.quote = " ".join(self._quote_parts).strip()
-            self.attribution = "".join(self._attr_parts).strip()
+            self.quote = _tidy("".join(self._quote_parts))
+            self.attribution = _tidy("".join(self._attr_parts)).strip("~–—- ").strip()
         elif tag == "small" and self._in_small:
             self._in_small = False
 
     def handle_data(self, data):
         if self._skip_depth or not self._in_bq:
             return
-        text = data.strip()
-        if not text:
-            return
         if self._in_small:
             self._attr_parts.append(data)
         else:
-            self._quote_parts.append(text)
+            # Keep the raw text: stripping each fragment and re-joining with
+            # spaces put gaps before punctuation that followed inline markup.
+            self._quote_parts.append(data)
+
+
+def _tidy(text: str) -> str:
+    text = re.sub(r"\s+", " ", text).strip()
+    return text.strip("\"“”").strip()
 
 
 def _error_block(reason: str, message: str) -> dict:

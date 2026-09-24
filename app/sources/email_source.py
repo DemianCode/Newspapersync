@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 from imap_tools import MailBox, AND
 
 from app import config_loader as cfg
+from app.sources._text import html_to_text, truncate, when
 
 logger = logging.getLogger(__name__)
 
@@ -33,17 +35,19 @@ def fetch() -> list[dict]:
     items: list[dict] = []
     try:
         with MailBox(host, port).login(username, password) as mailbox:
-            msgs = list(mailbox.fetch(AND(seen=False), limit=max_items, reverse=True))
+            # mark_seen=False: imap-tools marks fetched messages as read by
+            # default, which would silently clear the inbox every morning.
+            msgs = list(mailbox.fetch(AND(seen=False), limit=max_items, reverse=True, mark_seen=False))
             for msg in msgs:
-                snippet = _snippet(msg.text or msg.html or "")
                 items.append({
                     "type": "email",
                     "source": "Email",
-                    "title": msg.subject or "(no subject)",
-                    "body": snippet,
-                    "published": msg.date.strftime("%d %b %Y, %H:%M") if msg.date else "",
+                    "title": msg.subject.strip() or "(no subject)",
+                    "body": _snippet(msg.text or msg.html or ""),
+                    "published": when(msg.date) if msg.date and msg.date.year > 1900 else "",
                     "meta": {
-                        "from": msg.from_,
+                        "from": _sender(msg),
+                        "address": msg.from_,
                         "unread_total": None,  # populated below
                     },
                 })
@@ -58,10 +62,14 @@ def fetch() -> list[dict]:
     return items
 
 
-def _snippet(text: str, length: int = 160) -> str:
-    import re
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    if len(text) > length:
-        text = text[:length].rsplit(" ", 1)[0] + "…"
-    return text
+def _sender(msg) -> str:
+    """Display name when the message has one ("Alex Morgan"), else the address."""
+    values = getattr(msg, "from_values", None)
+    name = (getattr(values, "name", "") or "").strip().strip('"')
+    return name or msg.from_ or "Unknown sender"
+
+
+def _snippet(text: str, length: int = 180) -> str:
+    # Quoted replies and signatures add nothing to a morning glance.
+    text = re.split(r"\n\s*(?:On .{0,120}wrote:|-- ?\n|>)", text, maxsplit=1)[0]
+    return truncate(html_to_text(text), length)
