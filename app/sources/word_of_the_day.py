@@ -9,32 +9,14 @@ from __future__ import annotations
 
 import logging
 import os
-from html.parser import HTMLParser
+import re
+
+from app.sources._text import html_to_text, truncate
 
 logger = logging.getLogger(__name__)
 
 _FEED_URL = "https://www.merriam-webster.com/wotd/feed/rss2"
 _MAX_DEFINITION = 600
-
-
-class _TextStripper(HTMLParser):
-    """Strip HTML tags and return plain text."""
-
-    def __init__(self):
-        super().__init__()
-        self._parts: list[str] = []
-
-    def handle_data(self, data):
-        self._parts.append(data)
-
-    def get_text(self) -> str:
-        return " ".join(p.strip() for p in self._parts if p.strip())
-
-
-def _strip_html(text: str) -> str:
-    stripper = _TextStripper()
-    stripper.feed(text)
-    return stripper.get_text()
 
 
 def _error_block(reason: str, message: str) -> dict:
@@ -87,16 +69,70 @@ def fetch() -> list[dict]:
         return [_error_block("empty", "Word of the Day feed did not contain a valid entry.")]
 
     raw_summary = entry.get("summary", entry.get("description", ""))
-    definition = _strip_html(raw_summary).strip()
-
-    if len(definition) > _MAX_DEFINITION:
-        definition = definition[:_MAX_DEFINITION].rsplit(" ", 1)[0] + "\u2026"
+    parts = _parse_entry(raw_summary, word)
+    if not parts["definition"]:
+        return [_error_block("empty", "The Word of the Day entry had no definition.")]
 
     return [{
         "type": "word_of_the_day",
         "title": word,
         "source": "Merriam-Webster",
         "published": "Word of the Day",
-        "body": definition,
-        "meta": {},
+        "body": parts["definition"],
+        "meta": {
+            "pronunciation": parts["pronunciation"],
+            "part_of_speech": parts["part_of_speech"],
+            "example": parts["example"],
+            "did_you_know": parts["did_you_know"],
+        },
     }]
+
+
+def _parse_entry(raw_html: str, word: str) -> dict:
+    """Split M-W's entry into its parts instead of printing one run-on blob.
+
+    The feed body is a series of paragraphs: a boilerplate line ("…Word of the
+    Day for September 24 is:"), a header ("word • \\pron\\ • noun"), the
+    definition, an example starting "//", a "See the entry" link, then
+    Examples and "Did You Know?" sections.
+    """
+    paras = [html_to_text(p) for p in re.split(r"<\s*/?\s*(?:p|br)\b[^>]*>", raw_html or "", flags=re.I)]
+    paras = [p for p in paras if p]
+
+    out = {"pronunciation": "", "part_of_speech": "", "definition": "", "example": "", "did_you_know": ""}
+    section = "definition"
+    for i, para in enumerate(paras):
+        low = para.lower()
+        if "word of the day" in low and low.rstrip().endswith("is:"):
+            continue
+        if low.startswith("see the entry") or low.startswith("see the definition"):
+            continue
+        if low.rstrip(":?") in ("examples", "did you know"):
+            section = "examples" if low.startswith("examples") else "did_you_know"
+            continue
+        if "•" in para and not out["part_of_speech"] and not out["definition"]:
+            bits = [b.strip() for b in para.split("•")]
+            for bit in bits[1:]:
+                if bit.startswith("\\") or bit.startswith("/"):
+                    out["pronunciation"] = bit.strip("\\/ ")
+                elif bit:
+                    out["part_of_speech"] = bit
+            continue
+        if section == "definition":
+            if para.startswith("//"):
+                if not out["example"]:
+                    out["example"] = para.lstrip("/ ").strip()
+            elif not out["definition"]:
+                out["definition"] = para
+        elif section == "did_you_know" and not out["did_you_know"]:
+            out["did_you_know"] = para
+
+    if not out["definition"]:
+        # Unknown layout: fall back to the whole text minus the boilerplate.
+        text = re.sub(r"^.*?Word of the Day for .*? is:\s*", "", html_to_text(raw_html), flags=re.I)
+        out["definition"] = text
+
+    out["definition"] = truncate(out["definition"], _MAX_DEFINITION)
+    out["example"] = truncate(out["example"], 240)
+    out["did_you_know"] = truncate(out["did_you_know"], 320)
+    return out

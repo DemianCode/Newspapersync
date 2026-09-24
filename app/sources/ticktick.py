@@ -17,6 +17,7 @@ import sys
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -54,51 +55,88 @@ def fetch() -> list[dict]:
 
 def _fetch_tasks(access_token: str) -> list[dict]:
     show_overdue = os.environ.get("TICKTICK_SHOW_OVERDUE", "true").lower() == "true"
-    today = datetime.now(tz=timezone.utc).date()
+    today = datetime.now().astimezone().date()   # the reader's day, not UTC's
     headers = {"Authorization": f"Bearer {access_token}"}
 
+    # The Open API has no "all tasks" call: list the projects, then read each
+    # one's data. The inbox is not in the project list but answers to "inbox".
     try:
-        resp = requests.get(f"{_API_BASE}/project/all/closed", headers=headers, timeout=10)
-        # Get all tasks (simpler endpoint)
-        resp = requests.get(f"{_API_BASE}/project/all/task", headers=headers, timeout=10)
+        resp = requests.get(f"{_API_BASE}/project", headers=headers, timeout=10)
         resp.raise_for_status()
-        all_tasks = resp.json()
+        projects = [(p["id"], p.get("name", "")) for p in resp.json() if not p.get("closed")]
     except Exception as exc:
-        logger.error("TickTick task fetch failed: %s", exc)
+        logger.error("TickTick project list failed: %s", exc)
         return []
 
     items: list[dict] = []
-    for task in all_tasks:
-        if task.get("status") != 0:  # 0 = incomplete
-            continue
-        due_raw = task.get("dueDate") or task.get("due")
-        if not due_raw:
-            continue
+    for project_id, project_name in [("inbox", "Inbox")] + projects:
         try:
-            due_date = datetime.fromisoformat(due_raw.replace("Z", "+00:00")).date()
-        except Exception:
+            resp = requests.get(f"{_API_BASE}/project/{project_id}/data", headers=headers, timeout=10)
+            resp.raise_for_status()
+            tasks = resp.json().get("tasks", []) or []
+        except Exception as exc:
+            logger.warning("TickTick project '%s' skipped: %s", project_name or project_id, exc)
             continue
 
-        is_today = (due_date == today)
-        is_overdue = (due_date < today)
+        for task in tasks:
+            if task.get("status", 0) != 0:  # 0 = incomplete
+                continue
+            due = _parse_due(task.get("dueDate"), task.get("timeZone"))
+            if due is None:
+                continue
+            all_day = bool(task.get("isAllDay", False))
+            due_day = due.date()
 
-        if is_today or (show_overdue and is_overdue):
+            is_today = due_day == today
+            is_overdue = due_day < today
+            if not (is_today or (show_overdue and is_overdue)):
+                continue
+
             items.append({
                 "type": "task",
                 "source": "TickTick",
-                "title": task.get("title", "(untitled)"),
-                "body": task.get("content", ""),
-                "published": due_raw,
+                "title": (task.get("title") or "(untitled)").strip(),
+                "body": (task.get("content") or task.get("desc") or "").strip(),
+                "published": _due_label(due, all_day, today),
                 "meta": {
                     "overdue": is_overdue,
-                    "priority": task.get("priority", 0),
-                    "project": task.get("projectName", ""),
+                    "priority": task.get("priority", 0) or 0,
+                    "project": "" if project_id == "inbox" else project_name,
+                    "due_time": "" if all_day else due.strftime("%H:%M"),
                 },
             })
 
-    # Sort: overdue first, then by priority desc
-    items.sort(key=lambda t: (not t["meta"]["overdue"], -t["meta"]["priority"]))
+    # Overdue first, then priority (5 high → 0 none), then by time of day.
+    items.sort(key=lambda t: (not t["meta"]["overdue"], -t["meta"]["priority"], t["meta"]["due_time"] or "99"))
     return items
+
+
+def _parse_due(raw: str | None, tz_name: str | None) -> datetime | None:
+    """TickTick sends "2026-09-24T14:00:00.000+0000". All-day tasks are
+    midnight in the task's own zone, so convert there before taking the date —
+    otherwise a task due today in Sydney lands on yesterday in UTC."""
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt
+    try:
+        return dt.astimezone(ZoneInfo(tz_name)) if tz_name else dt.astimezone()
+    except Exception:
+        return dt.astimezone()
+
+
+def _due_label(due: datetime, all_day: bool, today) -> str:
+    """"Today", "Today 14:30", "Yesterday", "3 days overdue"."""
+    days = (today - due.date()).days
+    if days <= 0:
+        return "Today" if all_day else f"Today {due.strftime('%H:%M')}"
+    if days == 1:
+        return "Yesterday"
+    return f"{days} days overdue"
 
 
 def _load_token() -> dict | None:
@@ -119,6 +157,10 @@ def _maybe_refresh(token: dict, client_id: str, client_secret: str) -> dict | No
     expires_at = token.get("expires_at", 0)
     if expires_at and datetime.now(tz=timezone.utc).timestamp() < expires_at - 300:
         return token  # still valid
+    if not token.get("refresh_token"):
+        # TickTick tokens are long-lived and often come without a refresh
+        # token; try the one we have rather than failing outright.
+        return token
     # Refresh
     try:
         resp = requests.post(_TOKEN_URL, auth=HTTPBasicAuth(client_id, client_secret), data={
@@ -127,6 +169,9 @@ def _maybe_refresh(token: dict, client_id: str, client_secret: str) -> dict | No
         }, timeout=10)
         resp.raise_for_status()
         new_token = resp.json()
+        # Some OAuth servers only return a new refresh token occasionally;
+        # losing the old one would break every run after this.
+        new_token.setdefault("refresh_token", token.get("refresh_token"))
         new_token["expires_at"] = datetime.now(tz=timezone.utc).timestamp() + new_token.get("expires_in", 3600)
         _save_token(new_token)
         return new_token

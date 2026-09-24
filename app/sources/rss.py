@@ -7,19 +7,27 @@ is too short or truncated.
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 from datetime import datetime, timezone
 
 import feedparser
+import requests
 import trafilatura
 import yaml
 
 from app import config_loader as cfg
+from app.sources._text import html_to_text, truncate, when
 
 logger = logging.getLogger(__name__)
 
 _CONFIG_PATH = "/app/config/sources.yml"
 _MIN_SUMMARY_LEN = 200  # chars — below this we try full-page extraction
+_TIMEOUT = 15
+_USER_AGENT = "NewspaSync/2.0 (self-hosted newspaper generator)"
+# Substrings of 1×1 tracking images that feeds embed in their summaries.
+_PIXEL_MARKERS = ("feedburner.com/~r/", "feeds.feedburner", "/pixel", "pixel.", "doubleclick", "/t.gif")
 
 
 def fetch() -> list[dict]:
@@ -44,8 +52,8 @@ def fetch() -> list[dict]:
 def _load_feeds() -> list[dict]:
     try:
         with open(_CONFIG_PATH) as f:
-            cfg = yaml.safe_load(f)
-        return cfg.get("rss", {}).get("feeds", [])
+            data = yaml.safe_load(f) or {}
+        return (data.get("rss") or {}).get("feeds") or []
     except FileNotFoundError:
         logger.warning("sources.yml not found — using empty feed list")
         return []
@@ -55,38 +63,42 @@ def _fetch_feed(feed: dict) -> list[dict]:
     url: str = feed["url"]
     label: str = feed.get("name", url)
     max_items: int = feed.get("max_items", int(cfg.get("RSS_MAX_ARTICLES_PER_FEED", "5")))
+    max_body = int(cfg.get("RSS_MAX_ARTICLE_LENGTH", "1500"))
 
-    parsed = feedparser.parse(url)
+    # Download with a timeout ourselves: feedparser.parse(url) has none, so a
+    # single stalled feed could hang the whole morning run.
+    resp = requests.get(url, timeout=_TIMEOUT, headers={"User-Agent": _USER_AGENT})
+    resp.raise_for_status()
+    parsed = feedparser.parse(resp.content)
     if parsed.bozo and not parsed.entries:
         logger.warning("Failed to parse feed: %s", url)
         return []
 
     blocks: list[dict] = []
     for entry in parsed.entries[:max_items]:
-        title = entry.get("title", "(no title)")
+        title = html_to_text(entry.get("title", "")) or "(no title)"
         link = entry.get("link", "")
-        published = _parse_date(entry)
 
-        # Try summary from feed first
-        raw_html = entry.get("summary", "") or entry.get("content", [{}])[0].get("value", "")
-        image_url = _extract_image_url(raw_html)
-        body = _strip_html(raw_html)
+        raw_html = entry.get("summary", "") or (entry.get("content") or [{}])[0].get("value", "")
+        image_url, caption = _extract_image(raw_html)
+        body = html_to_text(raw_html)
 
-        # Fetch full article if summary is too short
         if len(body) < _MIN_SUMMARY_LEN and link:
-            body = _extract_full(link) or body
-
-        max_body = int(cfg.get("RSS_MAX_ARTICLE_LENGTH", "1500"))
-        if max_body > 0:
-            body = body[:max_body].rsplit(" ", 1)[0] + "…" if len(body) > max_body else body
+            if image_url:
+                # Picture posts (comics, photo of the day): the image is the
+                # story. Scraping the page would only drag in navigation text,
+                # so use the image's own caption (xkcd keeps its joke there).
+                body = body or caption
+            else:
+                body = _extract_full(link) or body
 
         blocks.append({
             "type": "article",
             "source": label,
             "title": title,
-            "body": body,
+            "body": truncate(body, max_body),
             "url": link,
-            "published": published,
+            "published": _parse_date(entry),
             "image_url": image_url,
         })
 
@@ -98,31 +110,38 @@ def _extract_full(url: str) -> str:
         downloaded = trafilatura.fetch_url(url)
         if downloaded:
             text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
-            return text or ""
+            return re.sub(r"\s+", " ", text or "").strip()
     except Exception as exc:
         logger.debug("trafilatura failed for %s: %s", url, exc)
     return ""
 
 
 def _parse_date(entry) -> str:
-    if hasattr(entry, "published_parsed") and entry.published_parsed:
+    """Feed timestamps are UTC; print them in the reader's local time."""
+    stamp = entry.get("published_parsed") or entry.get("updated_parsed")
+    if stamp:
         try:
-            dt = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
-            return dt.strftime("%d %b %Y, %H:%M")
+            return when(datetime(*stamp[:6], tzinfo=timezone.utc))
         except Exception:
             pass
     return ""
 
 
-def _extract_image_url(html: str) -> str:
-    """Return the src of the first <img> tag in html, or empty string."""
-    import re
-    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE)
-    return m.group(1) if m else ""
+def _extract_image(raw_html: str) -> tuple[str, str]:
+    """Return (src, caption) of the first real <img>, skipping tracking pixels."""
+    for tag in re.findall(r"<img\b[^>]*>", raw_html or "", re.IGNORECASE):
+        src = _attr(tag, "src")
+        if not src or not src.startswith(("http://", "https://")):
+            continue
+        if _attr(tag, "width") in ("0", "1") or _attr(tag, "height") in ("0", "1"):
+            continue
+        if any(marker in src for marker in _PIXEL_MARKERS):
+            continue
+        caption = html.unescape(_attr(tag, "title") or _attr(tag, "alt")).strip()
+        return src, caption
+    return "", ""
 
 
-def _strip_html(text: str) -> str:
-    import re
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+def _attr(tag: str, name: str) -> str:
+    m = re.search(rf'\b{name}\s*=\s*(["\'])(.*?)\1', tag, re.IGNORECASE | re.DOTALL)
+    return m.group(2) if m else ""

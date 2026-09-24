@@ -99,8 +99,8 @@ def fetch() -> list[dict]:
         job_id = job.get("id", "")
         if not job_id:
             continue
-        if job_id in seen:
-            continue  # already reported
+        if job_id in seen or job_id in new_seen:
+            continue  # already reported, or found twice by overlapping searches
 
         rating = _score_job(job, criteria)
         in_newspaper = rating >= min_rating
@@ -133,6 +133,7 @@ def fetch() -> list[dict]:
             "body": job.get("description", "")[:400],
             "published": job.get("date_posted", ""),
             "meta": {
+                "id": job_id,
                 "url": job["url"],
                 "company": job.get("company", ""),
                 "location": job.get("location", ""),
@@ -143,6 +144,17 @@ def fetch() -> list[dict]:
             },
         })
 
+    blocks.sort(key=lambda b: b["meta"]["rating"], reverse=True)
+    result = blocks[:max_jobs]
+
+    # Good listings that didn't fit today stay unseen so they can run in the
+    # next edition, instead of being marked seen and never printed.
+    for block in blocks[max_jobs:]:
+        job_id = block["meta"]["id"]
+        new_seen.pop(job_id, None)
+        if job_id in history:
+            history[job_id]["appeared_in_newspaper"] = False
+
     # Persist deduplication state and history archive
     seen.update(new_seen)
     _purge_old(seen, max_age_days)
@@ -150,8 +162,6 @@ def fetch() -> list[dict]:
     _purge_old_history(history, max_age_days)
     _save_history(history)
 
-    blocks.sort(key=lambda b: b["meta"]["rating"], reverse=True)
-    result = blocks[:max_jobs]
     logger.info("Jobs: returning %d new listings (of %d scraped)", len(result), len(raw_jobs))
     return result
 
